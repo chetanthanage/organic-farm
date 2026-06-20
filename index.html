@@ -875,8 +875,8 @@ function QtyModal({product, onConfirm, onClose}){
               step={unit==="kg"?"0.25":"50"}
               value={custom}
               onChange={handleCustom}
-              placeholder={unit==="kg"?"e.g. 1 Kg":"e.g. 500 Gram"}
-              autoFocus
+              placeholder="Enter quantity"
+              inputMode="decimal"
             />
             <select className="qm-unit-sel" value={unit} onChange={handleUnit}>
               <option value="g">Gram</option>
@@ -1404,6 +1404,12 @@ function OrderModal({order,cart,onClose,onWA}){
           <div className="ci-box"><div className="ci-lbl">Phone</div><div className="ci-val">{order.phone}</div></div>
           <div className="ci-box"><div className="ci-lbl">Address</div><div className="ci-val">{order.address}</div></div>
           <div className="ci-box"><div className="ci-lbl">Pin Code</div><div className="ci-val">{order.pin}</div></div>
+          {order.mapLink&&(
+            <div className="ci-box">
+              <div className="ci-lbl">Live Location</div>
+              <div className="ci-val"><a href={order.mapLink} target="_blank" rel="noreferrer">📍 View on Google Maps</a></div>
+            </div>
+          )}
         </div>
 
         <div className="ord-sec">📦 Items Ordered</div>
@@ -1437,10 +1443,35 @@ function OrderModal({order,cart,onClose,onWA}){
 
 /* ════ CART PAGE ════ */
 function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
-  const [form,setF]=React.useState({name:"",phone:"",address:"",pin:""});
+  const [form,setF]=React.useState({name:"",phone:"",address:"",pin:"",mapLink:""});
   const [errs,setE]=React.useState({});
   const [modal,setModal]=React.useState(false);
   const [confirmedOrder,setConfirmed]=React.useState(null);
+  const [locating,setLocating]=React.useState(false);
+  const [locErr,setLocErr]=React.useState("");
+
+  const handleUseLocation=()=>{
+    if(!navigator.geolocation){
+      setLocErr("Location not supported on this device/browser");
+      return;
+    }
+    setLocating(true);
+    setLocErr("");
+    navigator.geolocation.getCurrentPosition(
+      (pos)=>{
+        const {latitude,longitude}=pos.coords;
+        const link=`https://maps.google.com/?q=${latitude},${longitude}`;
+        setF(prev=>({...prev,mapLink:link}));
+        setLocating(false);
+      },
+      (err)=>{
+        setLocating(false);
+        if(err.code===1) setLocErr("Permission denied. Please allow location access.");
+        else setLocErr("Couldn't fetch location. Try again.");
+      },
+      {enableHighAccuracy:true,timeout:10000}
+    );
+  };
 
   const total=cartTotal(cart);
   const count=cartCount(cart);
@@ -1489,7 +1520,9 @@ function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
     msg += `Name     : ${form.name}\n`;
     msg += `Phone    : ${form.phone}\n`;
     msg += `Address  : ${form.address}\n`;
-    msg += `Pin Code : ${form.pin}\n\n`;
+    msg += `Pin Code : ${form.pin}\n`;
+    if(form.mapLink) msg += `📍 Live Location : ${form.mapLink}\n`;
+    msg += "\n";
     msg += "📦 *Items Ordered*\n\n";
     cart.forEach((item, idx) => {
       const qty_display = item.quantity > 1 ? `${item.unit} × ${item.quantity}` : item.unit;
@@ -1584,7 +1617,7 @@ function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
 
               <div className="fg">
                 <label>Customer Name *</label>
-                <input type="text" placeholder="Ramesh Patil" value={form.name} className={errs.name?"err":""} onChange={e=>{setF({...form,name:e.target.value});setE({...errs,name:""}); }}/>
+                <input type="text" placeholder="Enter your name" value={form.name} className={errs.name?"err":""} onChange={e=>{setF({...form,name:e.target.value});setE({...errs,name:""}); }}/>
                 {errs.name&&<div className="ferr">{errs.name}</div>}
               </div>
 
@@ -1598,6 +1631,18 @@ function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
                 <label>Full Address *</label>
                 <input type="text" placeholder="House no, Street, Village/City" value={form.address} className={errs.address?"err":""} onChange={e=>{setF({...form,address:e.target.value});setE({...errs,address:""}); }}/>
                 {errs.address&&<div className="ferr">{errs.address}</div>}
+
+                <button type="button" className="loc-btn" onClick={handleUseLocation} disabled={locating}>
+                  <i className={`fa-solid ${locating?"fa-spinner fa-spin":"fa-location-crosshairs"}`}/>
+                  {locating?"Fetching your location...":form.mapLink?"Update my location":"Use My Current Location"}
+                </button>
+                {form.mapLink&&(
+                  <div className="loc-confirm">
+                    <i className="fa-solid fa-circle-check"/> Location captured —{" "}
+                    <a href={form.mapLink} target="_blank" rel="noreferrer">View on map</a>
+                  </div>
+                )}
+                {locErr&&<div className="ferr">{locErr}</div>}
               </div>
 
               <div className="fg">
