@@ -1,0 +1,46 @@
+rules_version = '2';
+
+/* ════════════════════════════════════════════════════════════════
+   FIRESTORE SECURITY RULES — Organic Farm
+   ──────────────────────────────────────────────────────────────
+   Scope: PRODUCT DATA ONLY. The gallery is fully static (plain
+   files in /images/gallery/, rendered directly by index.html) and
+   is never read from or written to Firestore — there is no
+   `gallery` collection in this app.
+
+   Public visitors (storefront): READ-ONLY access to the `products`
+   collection so the catalog can load without logging in.
+
+   Writes (create/update/delete) are allowed ONLY to signed-in
+   Firebase Authentication users. Since there is no public sign-up
+   page anywhere in this project, the only way to become an
+   authenticated user is for the site owner to manually create an
+   account in the Firebase Console → Authentication → Users.
+   That means request.auth != null is a reliable "is admin" check
+   for this app.
+
+   Deploy with: firebase deploy --only firestore:rules
+   (or paste this file's contents into the Firebase Console →
+   Firestore Database → Rules tab → Publish.)
+   ════════════════════════════════════════════════════════════════ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ── Products catalog (the only collection this app uses) ── */
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.name is string
+                    && request.resource.data.image is string
+                    && request.resource.data.price is number
+                    && request.resource.data.price >= 0;
+      allow update, delete: if request.auth != null;
+    }
+
+    /* ── Catch-all: deny everything else by default ── */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -12,6 +12,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<!-- Firebase (compat SDK — Auth + Firestore only; no Storage, see firebase-config.js) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="products.js"></script>
 </head>
 <body>
 
@@ -23,460 +30,21 @@
 <div id="progressBar"></div>
 <div id="root"></div>
 
-<script>
-</script>
-
 <script type="text/babel">
 
 /* ════════════════════════════════════════════
-   COMPLETE PRODUCT CATALOG — All 187 products
+   PRODUCT CATALOG
+   Loaded dynamically from Firestore via window.ProductsAPI
+   (see products.js). Falls back automatically to the original
+   187-item static catalog (window.DEFAULT_PRODUCTS) whenever
+   Firestore is empty, unreachable, or not yet configured —
+   see ProductsSection() below for the loading logic.
    ════════════════════════════════════════════ */
-const PRODUCTS = [
-  /* ─── DAL & PULSES ─── */
-  {id:1, name:"उडीद डाळ (सफेद)", nameEn:"Urad Dal (White)", category:"Dal", quantity:"500g", price:95,
-   image:"images/Urad_Dal_White.jpg"},
-  {id:2, name:"मसूर डाळ", nameEn:"Masur Dal", category:"Dal", quantity:"500g", price:80,
-   image:"images/Masur_Dal.jpg"},
-  {id:3, name:"हरभरा डाळ", nameEn:"Harbhara Dal (Chana)", category:"Dal", quantity:"500g", price:70,
-   image:"images/Harbhara_Dal_Chana.jpg"},
-  {id:4, name:"मूंग डाळ", nameEn:"Moong Dal", category:"Dal", quantity:"500g", price:85,
-   image:"images/Moong_Dal.jpg"},
-  {id:5, name:"तूर डाळ", nameEn:"Tur Dal", category:"Dal", quantity:"500g", price:90,
-   image:"images/Tur_Dal.jpg"},
-  {id:6, name:"छोले (काबुली चना)", nameEn:"Chole / Chickpeas", category:"Dal", quantity:"500g", price:80,
-   image:"images/Chole__Chickpeas.jpg"},
-  {id:7, name:"राजमा", nameEn:"Rajma", category:"Dal", quantity:"500g", price:100,
-   image:"images/Rajma.jpg"},
-  {id:8, name:"चवळी", nameEn:"Chavali (Black-eyed peas)", category:"Dal", quantity:"500g", price:75,
-   image:"images/Chavali_Blackeyed_peas.jpg"},
 
-  /* ─── GRAINS ─── */
-  {id:9, name:"गहू", nameEn:"Wheat", category:"Grains", quantity:"1 Kg", price:55,
-   image:"images/Wheat.jpg"},
-  {id:10, name:"बाजरी", nameEn:"Bajra (Pearl Millet)", category:"Grains", quantity:"1 Kg", price:40,
-   image:"images/Bajra_Pearl_Millet.jpg"},
-  {id:11, name:"बासमती तांदूळ", nameEn:"Basmati Rice", category:"Grains", quantity:"1 Kg", price:130,
-   image:"images/Basmati_Rice.jpg"},
-  {id:12, name:"इंद्रायणी तांदूळ", nameEn:"Indrayani Rice", category:"Grains", quantity:"1 Kg", price:90,
-   image:"images/Indrayani_Rice.jpg"},
-  {id:13, name:"नागली (रागी)", nameEn:"Nagli / Ragi (Finger Millet)", category:"Grains", quantity:"500g", price:60,
-   image:"images/Nagli__Ragi_Finger_Millet.jpg"},
-  {id:14, name:"भगर (वरई)", nameEn:"Bhagar / Varai (Barnyard Millet)", category:"Grains", quantity:"500g", price:70,
-   image:"images/Bhagar__Varai_Barnyard_Millet.jpg"},
-  {id:15, name:"पोहे", nameEn:"Pohe (Flattened Rice)", category:"Grains", quantity:"500g", price:45,
-   image:"images/Pohe_Flattened_Rice.jpg"},
-  {id:16, name:"शेवई", nameEn:"Shevai (Rice Noodles)", category:"Grains", quantity:"250g", price:35,
-   image:"images/Shevai_Rice_Noodles.jpg"},
-  {id:17, name:"जवस (अळशी)", nameEn:"Javas / Flaxseed", category:"Grains", quantity:"250g", price:55,
-   image:"images/Javas__Flaxseed.jpg"},
-
-  /* ─── DAIRY & FAT ─── */
-  {id:18, name:"तूप (देशी गाईचे)", nameEn:"Desi Cow Ghee", category:"Dairy", quantity:"500g", price:380,
-   image:"images/Desi_Cow_Ghee.jpg"},
-  {id:19, name:"शिरगाईचे तूप", nameEn:"Shirgai Ghee", category:"Dairy", quantity:"200g", price:180,
-   image:"images/Shirgai_Ghee.jpg"},
-  {id:20, name:"दूध (गाईचे)", nameEn:"Cow Milk", category:"Dairy", quantity:"1 Litre", price:65,
-   image:"images/Cow_Milk.jpg"},
-  {id:21, name:"लोणी (ताजे)", nameEn:"Fresh Butter", category:"Dairy", quantity:"200g", price:120,
-   image:"images/Fresh_Butter.jpg"},
-
-  /* ─── SWEETENERS ─── */
-  {id:22, name:"गूळ", nameEn:"Jaggery (Block)", category:"Sweeteners", quantity:"500g", price:65,
-   image:"images/Jaggery_Block.jpg"},
-  {id:23, name:"गूळ पावडर", nameEn:"Jaggery Powder", category:"Sweeteners", quantity:"500g", price:70,
-   image:"images/Jaggery_Powder.jpg"},
-  {id:24, name:"मध (शुद्ध)", nameEn:"Pure Honey", category:"Sweeteners", quantity:"250g", price:180,
-   image:"images/Pure_Honey.jpg"},
-
-  /* ─── OILS ─── */
-  {id:25, name:"शेंगदाणा तेल", nameEn:"Groundnut Oil", category:"Oils", quantity:"1 Litre", price:200,
-   image:"images/Groundnut_Oil.jpg"},
-  {id:26, name:"खोबरेल तेल", nameEn:"Coconut Oil", category:"Oils", quantity:"500ml", price:160,
-   image:"images/Coconut_Oil.jpg"},
-  {id:27, name:"तिळाचे तेल", nameEn:"Sesame Oil", category:"Oils", quantity:"500ml", price:180,
-   image:"images/Sesame_Oil.jpg"},
-  {id:28, name:"जवसाचे तेल", nameEn:"Flaxseed Oil", category:"Oils", quantity:"250ml", price:140,
-   image:"images/Flaxseed_Oil.jpg"},
-
-  /* ─── SPICES ─── */
-  {id:29, name:"धने पावडर", nameEn:"Coriander Powder", category:"Spices", quantity:"200g", price:50,
-   image:"images/Coriander_Powder.jpg"},
-  {id:30, name:"जिरे पावडर", nameEn:"Cumin Powder", category:"Spices", quantity:"200g", price:55,
-   image:"images/Cumin_Powder.jpg"},
-  {id:31, name:"हळद पावडर", nameEn:"Turmeric Powder", category:"Spices", quantity:"200g", price:80,
-   image:"images/Turmeric_Powder.jpg"},
-  {id:32, name:"लाल मिरची पावडर", nameEn:"Red Chilli Powder", category:"Spices", quantity:"200g", price:60,
-   image:"images/Red_Chilli_Powder.jpg"},
-  {id:33, name:"गरम मसाला", nameEn:"Garam Masala", category:"Spices", quantity:"100g", price:80,
-   image:"images/Garam_Masala.jpg"},
-
-  /* ─── NUTS & DRY FRUITS ─── */
-  {id:34, name:"काजू", nameEn:"Cashew Nuts", category:"Nuts", quantity:"250g", price:280,
-   image:"images/Cashew_Nuts.jpg"},
-  {id:35, name:"बदाम", nameEn:"Almonds", category:"Nuts", quantity:"250g", price:320,
-   image:"images/Almonds.jpg"},
-  {id:36, name:"अक्रोड", nameEn:"Walnut", category:"Nuts", quantity:"250g", price:350,
-   image:"images/Walnut.jpg"},
-  {id:37, name:"खजूर", nameEn:"Dates", category:"Nuts", quantity:"500g", price:180,
-   image:"images/Dates.jpg"},
-
-  /* ─── VEGETABLES ─── */
-  {id:38, name:"टमाटर", nameEn:"Organic Tomato", category:"Vegetables", quantity:"1 Kg", price:60,
-   image:"images/Organic_Tomato.jpg"},
-  {id:39, name:"गाजर", nameEn:"Fresh Carrot", category:"Vegetables", quantity:"1 Kg", price:70,
-   image:"images/Fresh_Carrot.jpg"},
-  {id:40, name:"बटाटा", nameEn:"Organic Potato", category:"Vegetables", quantity:"1 Kg", price:35,
-   image:"images/Organic_Potato.jpg"},
-  {id:41, name:"कांदा", nameEn:"Organic Onion", category:"Vegetables", quantity:"1 Kg", price:40,
-   image:"images/Organic_Onion.jpg"},
-  {id:42, name:"कोबी", nameEn:"Cabbage", category:"Vegetables", quantity:"1 Pcs", price:30,
-   image:"images/Cabbage.jpg"},
-  {id:43, name:"पालक", nameEn:"Green Spinach", category:"Vegetables", quantity:"250g", price:20,
-   image:"images/Green_Spinach.jpg"},
-  {id:44, name:"कोथिंबीर", nameEn:"Fresh Coriander", category:"Vegetables", quantity:"100g", price:15,
-   image:"images/Fresh_Coriander.jpg"},
-  {id:45, name:"मेथी", nameEn:"Fenugreek Leaves", category:"Vegetables", quantity:"250g", price:25,
-   image:"images/Fenugreek_Leaves.jpg"},
-  {id:51, name:"वांगी", nameEn:"Brinjal (Eggplant)", category:"Vegetables", quantity:"1 Kg", price:50,
-   image:"images/Brinjal_Eggplant.jpg"},
-  {id:52, name:"फ्लॉवर", nameEn:"Cauliflower", category:"Vegetables", quantity:"1 Pcs", price:35,
-   image:"images/Cauliflower.jpg"},
-  {id:53, name:"मटार (वाटाणा)", nameEn:"Green Peas", category:"Vegetables", quantity:"500g", price:60,
-   image:"images/Green_Peas.jpg"},
-  {id:54, name:"दुधी भोपळा", nameEn:"Bottle Gourd (Dudhi)", category:"Vegetables", quantity:"1 Pcs", price:30,
-   image:"images/Bottle_Gourd_Dudhi.jpg"},
-  {id:55, name:"दोडका", nameEn:"Ridge Gourd (Dodka)", category:"Vegetables", quantity:"500g", price:35,
-   image:"images/Ridge_Gourd_Dodka.jpg"},
-  {id:56, name:"कारले", nameEn:"Bitter Gourd (Karela)", category:"Vegetables", quantity:"500g", price:40,
-   image:"images/Bitter_Gourd_Karela.jpg"},
-  {id:57, name:"काकडी", nameEn:"Cucumber", category:"Vegetables", quantity:"1 Kg", price:30,
-   image:"images/Cucumber.jpg"},
-  {id:58, name:"ढोबळी मिरची", nameEn:"Capsicum (Bell Pepper)", category:"Vegetables", quantity:"500g", price:60,
-   image:"images/Capsicum_Bell_Pepper.jpg"},
-  {id:59, name:"हिरवी मिरची", nameEn:"Green Chilli", category:"Vegetables", quantity:"250g", price:30,
-   image:"images/Green_Chilli.jpg"},
-  {id:60, name:"भेंडी", nameEn:"Ladies Finger (Okra)", category:"Vegetables", quantity:"500g", price:40,
-   image:"images/Ladies_Finger_Okra.jpg"},
-  {id:61, name:"शेवगा", nameEn:"Drumstick (Shevga)", category:"Vegetables", quantity:"250g", price:35,
-   image:"images/Drumstick_Shevga.jpg"},
-  {id:62, name:"मुळा", nameEn:"Radish", category:"Vegetables", quantity:"1 Kg", price:25,
-   image:"images/Radish.jpg"},
-  {id:63, name:"बीट", nameEn:"Beetroot", category:"Vegetables", quantity:"500g", price:35,
-   image:"images/Beetroot.jpg"},
-  {id:64, name:"मका (कणीस)", nameEn:"Sweet Corn", category:"Vegetables", quantity:"2 Pcs", price:30,
-   image:"images/Sweet_Corn.jpg"},
-  {id:65, name:"लाल भोपळा", nameEn:"Red Pumpkin", category:"Vegetables", quantity:"1 Kg", price:30,
-   image:"images/Red_Pumpkin.jpg"},
-  {id:66, name:"गवार", nameEn:"Cluster Beans (Gavar)", category:"Vegetables", quantity:"500g", price:50,
-   image:"images/Cluster_Beans_Gavar.jpg"},
-  {id:67, name:"फरसबी", nameEn:"French Beans", category:"Vegetables", quantity:"500g", price:60,
-   image:"images/French_Beans.jpg"},
-  {id:68, name:"लसूण", nameEn:"Garlic", category:"Vegetables", quantity:"250g", price:60,
-   image:"images/Garlic.jpg"},
-  {id:69, name:"आले", nameEn:"Ginger", category:"Vegetables", quantity:"250g", price:50,
-   image:"images/Ginger.jpg"},
-  {id:70, name:"रताळे", nameEn:"Sweet Potato", category:"Vegetables", quantity:"1 Kg", price:50,
-   image:"images/Sweet_Potato.jpg"},
-  {id:71, name:"कांदा पात", nameEn:"Spring Onion", category:"Vegetables", quantity:"250g", price:20,
-   image:"images/Spring_Onion.jpg"},
-
-  /* ─── FRUITS ─── */
-  {id:46, name:"सफरचंद", nameEn:"Organic Apple", category:"Fruits", quantity:"1 Kg", price:180,
-   image:"images/Organic_Apple.jpg"},
-  {id:47, name:"केळे", nameEn:"Fresh Banana", category:"Fruits", quantity:"1 Dozen", price:50,
-   image:"images/Fresh_Banana.jpg"},
-  {id:48, name:"संत्री", nameEn:"Organic Orange", category:"Fruits", quantity:"1 Kg", price:120,
-   image:"images/Organic_Orange.jpg"},
-  {id:49, name:"पपई", nameEn:"Fresh Papaya", category:"Fruits", quantity:"1 Kg", price:45,
-   image:"images/Fresh_Papaya.jpg"},
-  {id:50, name:"डाळिंब", nameEn:"Pomegranate", category:"Fruits", quantity:"1 Kg", price:160,
-   image:"images/Pomegranate.jpg"},
-
-  /* ─── FLOUR / ATTA ─── */
-  {id:72, name:"गव्हाचे पीठ", nameEn:"Wheat Flour (Atta)", category:"Flour", quantity:"1 Kg", price:55,
-   image:"images/Wheat_Flour_Atta.jpg"},
-  {id:73, name:"ज्वारीचे पीठ", nameEn:"Jowar Flour (Sorghum)", category:"Flour", quantity:"1 Kg", price:50,
-   image:"images/Jowar_Flour_Sorghum.jpg"},
-  {id:74, name:"बाजरीचे पीठ", nameEn:"Bajra Flour (Pearl Millet)", category:"Flour", quantity:"1 Kg", price:45,
-   image:"images/Bajra_Flour_Pearl_Millet.jpg"},
-  {id:75, name:"नागलीचे पीठ", nameEn:"Ragi Flour (Finger Millet)", category:"Flour", quantity:"500g", price:60,
-   image:"images/Ragi_Flour_Finger_Millet.jpg"},
-  {id:76, name:"बेसन", nameEn:"Besan (Chickpea Flour)", category:"Flour", quantity:"500g", price:65,
-   image:"images/Besan_Chickpea_Flour.jpg"},
-  {id:77, name:"मैदा", nameEn:"Maida (All Purpose Flour)", category:"Flour", quantity:"1 Kg", price:45,
-   image:"images/Maida_All_Purpose_Flour.jpg"},
-  {id:78, name:"रवा / सूजी", nameEn:"Semolina (Rava / Suji)", category:"Flour", quantity:"500g", price:40,
-   image:"images/Semolina_Rava__Suji.jpg"},
-  {id:79, name:"कॉर्नफ्लोर", nameEn:"Corn Flour / Starch", category:"Flour", quantity:"500g", price:50,
-   image:"images/Corn_Flour__Starch.jpg"},
-  {id:80, name:"राजगिरा पीठ", nameEn:"Rajgira Flour (Amaranth)", category:"Flour", quantity:"500g", price:80,
-   image:"images/Rajgira_Flour_Amaranth.jpg"},
-  {id:81, name:"कुट्टू पीठ", nameEn:"Buckwheat Flour (Kuttu)", category:"Flour", quantity:"500g", price:90,
-   image:"images/Buckwheat_Flour_Kuttu.jpg"},
-  {id:82, name:"थालीपीठ भाजणी", nameEn:"Thalipeeth Bhajani", category:"Flour", quantity:"500g", price:75,
-   image:"images/Thalipeeth_Bhajani.jpg"},
-
-  /* ─── RICE VARIETIES ─── */
-  {id:83, name:"कोलम तांदूळ", nameEn:"Kolam Rice", category:"Grains", quantity:"1 Kg", price:70,
-   image:"images/Kolam_Rice.jpg"},
-  {id:84, name:"अंबेमोहर तांदूळ", nameEn:"Ambemohar Rice", category:"Grains", quantity:"1 Kg", price:100,
-   image:"images/Ambemohar_Rice.jpg"},
-  {id:85, name:"काळा तांदूळ", nameEn:"Black Rice (Forbidden)", category:"Grains", quantity:"500g", price:120,
-   image:"images/Black_Rice_Forbidden.jpg"},
-  {id:86, name:"लाल तांदूळ", nameEn:"Red Rice", category:"Grains", quantity:"1 Kg", price:90,
-   image:"images/Red_Rice.jpg"},
-
-  /* ─── MORE DAL ─── */
-  {id:87, name:"मटकी", nameEn:"Matki (Moth Bean)", category:"Dal", quantity:"500g", price:75,
-   image:"images/Matki_Moth_Bean.jpg"},
-  {id:88, name:"वाल", nameEn:"Field Beans (Val)", category:"Dal", quantity:"500g", price:70,
-   image:"images/Field_Beans_Val.jpg"},
-  {id:89, name:"हिरवे वाटाणे (वाळलेले)", nameEn:"Dried Green Peas", category:"Dal", quantity:"500g", price:65,
-   image:"images/Dried_Green_Peas.jpg"},
-  {id:90, name:"काळे वाटाणे", nameEn:"Black Peas (Kala Vatana)", category:"Dal", quantity:"500g", price:70,
-   image:"images/Black_Peas_Kala_Vatana.jpg"},
-  {id:91, name:"लाल मसूर (साबुत)", nameEn:"Whole Red Lentils", category:"Dal", quantity:"500g", price:80,
-   image:"images/Whole_Red_Lentils.jpg"},
-
-  /* ─── MORE FRUITS ─── */
-  {id:92, name:"पेरू", nameEn:"Guava", category:"Fruits", quantity:"500g", price:40,
-   image:"images/Guava.jpg"},
-  {id:93, name:"चिकू", nameEn:"Sapodilla (Chikoo)", category:"Fruits", quantity:"500g", price:50,
-   image:"images/Sapodilla_Chikoo.jpg"},
-  {id:94, name:"सीताफळ", nameEn:"Custard Apple (Sitafal)", category:"Fruits", quantity:"500g", price:80,
-   image:"images/Custard_Apple_Sitafal.jpg"},
-  {id:95, name:"आवळा", nameEn:"Amla (Indian Gooseberry)", category:"Fruits", quantity:"250g", price:40,
-   image:"images/Amla_Indian_Gooseberry.jpg"},
-  {id:96, name:"नारळ", nameEn:"Coconut", category:"Fruits", quantity:"1 Pcs", price:30,
-   image:"images/Coconut.jpg"},
-  {id:97, name:"लिंबू", nameEn:"Lemon", category:"Fruits", quantity:"6 Pcs", price:20,
-   image:"images/Lemon.jpg"},
-  {id:98, name:"आंबा (हापूस)", nameEn:"Alphonso Mango (Hapus)", category:"Fruits", quantity:"1 Dozen", price:350,
-   image:"images/Alphonso_Mango_Hapus.jpg"},
-  {id:99, name:"द्राक्षे", nameEn:"Grapes", category:"Fruits", quantity:"500g", price:80,
-   image:"images/Grapes.jpg"},
-  {id:100, name:"स्ट्रॉबेरी", nameEn:"Strawberry", category:"Fruits", quantity:"250g", price:90,
-   image:"images/Strawberry.jpg"},
-
-  /* ─── MORE SPICES ─── */
-  {id:101, name:"मोहरी", nameEn:"Mustard Seeds (Mohri)", category:"Spices", quantity:"100g", price:25,
-   image:"images/Mustard_Seeds_Mohri.jpg"},
-  {id:102, name:"मेथी दाणे", nameEn:"Fenugreek Seeds (Methi)", category:"Spices", quantity:"100g", price:30,
-   image:"images/Fenugreek_Seeds_Methi.jpg"},
-  {id:103, name:"ओवा", nameEn:"Carom Seeds (Ajwain)", category:"Spices", quantity:"100g", price:35,
-   image:"images/Carom_Seeds_Ajwain.jpg"},
-  {id:104, name:"तमालपत्र", nameEn:"Bay Leaves (Tamalpatra)", category:"Spices", quantity:"25g", price:20,
-   image:"images/Bay_Leaves_Tamalpatra.jpg"},
-  {id:105, name:"दालचिनी", nameEn:"Cinnamon (Dalchini)", category:"Spices", quantity:"50g", price:40,
-   image:"images/Cinnamon_Dalchini.jpg"},
-  {id:106, name:"लवंग", nameEn:"Cloves (Lavang)", category:"Spices", quantity:"50g", price:50,
-   image:"images/Cloves_Lavang.jpg"},
-  {id:107, name:"वेलदोडे", nameEn:"Cardamom (Elaichi)", category:"Spices", quantity:"25g", price:60,
-   image:"images/Cardamom_Elaichi.jpg"},
-  {id:108, name:"काळी मिरी", nameEn:"Black Pepper", category:"Spices", quantity:"50g", price:55,
-   image:"images/Black_Pepper.jpg"},
-  {id:109, name:"हिंग", nameEn:"Asafoetida (Hing)", category:"Spices", quantity:"25g", price:40,
-   image:"images/Asafoetida_Hing.jpg"},
-  {id:110, name:"काश्मिरी लाल मिरची", nameEn:"Kashmiri Red Chilli", category:"Spices", quantity:"100g", price:70,
-   image:"images/Kashmiri_Red_Chilli.jpg"},
-  {id:111, name:"आमचूर पावडर", nameEn:"Dry Mango Powder (Amchur)", category:"Spices", quantity:"100g", price:45,
-   image:"images/Dry_Mango_Powder_Amchur.jpg"},
-  {id:112, name:"चाट मसाला", nameEn:"Chaat Masala", category:"Spices", quantity:"100g", price:50,
-   image:"images/Chaat_Masala.jpg"},
-  {id:113, name:"गोडा मसाला", nameEn:"Goda Masala (Maharashtrian)", category:"Spices", quantity:"100g", price:80,
-   image:"images/Goda_Masala_Maharashtrian.jpg"},
-  {id:114, name:"पावभाजी मसाला", nameEn:"Pav Bhaji Masala", category:"Spices", quantity:"100g", price:55,
-   image:"images/Pav_Bhaji_Masala.jpg"},
-  {id:115, name:"सांबार मसाला", nameEn:"Sambar Masala", category:"Spices", quantity:"100g", price:55,
-   image:"images/Sambar_Masala.jpg"},
-
-  /* ─── MORE DAIRY ─── */
-  {id:116, name:"पनीर", nameEn:"Paneer (Cottage Cheese)", category:"Dairy", quantity:"200g", price:80,
-   image:"images/Paneer_Cottage_Cheese.jpg"},
-  {id:117, name:"दही", nameEn:"Curd (Dahi)", category:"Dairy", quantity:"500g", price:40,
-   image:"images/Curd_Dahi.jpg"},
-  {id:118, name:"ताक", nameEn:"Buttermilk (Tak)", category:"Dairy", quantity:"500ml", price:25,
-   image:"images/Buttermilk_Tak.jpg"},
-  {id:119, name:"मावा / खवा", nameEn:"Mawa / Khoya", category:"Dairy", quantity:"200g", price:100,
-   image:"images/Mawa__Khoya.jpg"},
-  {id:120, name:"श्रीखंड", nameEn:"Shrikhand", category:"Dairy", quantity:"200g", price:70,
-   image:"images/Shrikhand.jpg"},
-
-  /* ─── MORE OILS ─── */
-  {id:121, name:"मोहरी तेल", nameEn:"Mustard Oil", category:"Oils", quantity:"1 Litre", price:180,
-   image:"images/Mustard_Oil.jpg"},
-  {id:122, name:"बदाम तेल", nameEn:"Almond Oil (Cold Pressed)", category:"Oils", quantity:"200ml", price:280,
-   image:"images/Almond_Oil_Cold_Pressed.jpg"},
-  {id:123, name:"एरंडेल तेल", nameEn:"Castor Oil", category:"Oils", quantity:"200ml", price:120,
-   image:"images/Castor_Oil.jpg"},
-
-  /* ─── MORE SWEETENERS ─── */
-  {id:124, name:"नारळ साखर", nameEn:"Coconut Sugar", category:"Sweeteners", quantity:"250g", price:120,
-   image:"images/Coconut_Sugar.jpg"},
-  {id:125, name:"ताडगूळ", nameEn:"Palm Jaggery (Tadgul)", category:"Sweeteners", quantity:"250g", price:80,
-   image:"images/Palm_Jaggery_Tadgul.jpg"},
-
-  /* ─── MORE NUTS ─── */
-  {id:126, name:"पिस्ता", nameEn:"Pistachios", category:"Nuts", quantity:"100g", price:200,
-   image:"images/Pistachios.jpg"},
-  {id:127, name:"खजूर", nameEn:"Dates (Khajoor)", category:"Nuts", quantity:"500g", price:180,
-   image:"images/Dates_Khajoor.jpg"},
-  {id:128, name:"मनुका", nameEn:"Raisins (Manuka)", category:"Nuts", quantity:"250g", price:120,
-   image:"images/Raisins_Manuka.jpg"},
-  {id:129, name:"अंजीर (वाळलेले)", nameEn:"Dried Figs (Anjeer)", category:"Nuts", quantity:"250g", price:160,
-   image:"images/Dried_Figs_Anjeer.jpg"},
-  {id:130, name:"जर्दाळू", nameEn:"Dried Apricot (Jardalu)", category:"Nuts", quantity:"250g", price:180,
-   image:"images/Dried_Apricot_Jardalu.jpg"},
-
-  /* ─── SNACKS & NAMKEEN ─── */
-  {id:131, name:"शेंगदाणे (भाजलेले)", nameEn:"Roasted Peanuts", category:"Snacks", quantity:"250g", price:40,
-   image:"images/Roasted_Peanuts.jpg"},
-  {id:132, name:"चुरमुरे", nameEn:"Puffed Rice (Churmure)", category:"Snacks", quantity:"200g", price:25,
-   image:"images/Puffed_Rice_Churmure.jpg"},
-  {id:133, name:"चिवडा", nameEn:"Chivda (Poha Mix)", category:"Snacks", quantity:"250g", price:50,
-   image:"images/Chivda_Poha_Mix.jpg"},
-  {id:134, name:"लाडू (बेसन)", nameEn:"Besan Ladoo", category:"Snacks", quantity:"250g", price:120,
-   image:"images/Besan_Ladoo.jpg"},
-  {id:135, name:"चकली", nameEn:"Chakli", category:"Snacks", quantity:"250g", price:100,
-   image:"images/Chakli.jpg"},
-  {id:136, name:"शेव", nameEn:"Sev (Gram Flour Snack)", category:"Snacks", quantity:"200g", price:50,
-   image:"images/Sev_Gram_Flour_Snack.jpg"},
-  {id:137, name:"उडीद पापड", nameEn:"Urad Dal Papad", category:"Snacks", quantity:"200g", price:55,
-   image:"images/Urad_Dal_Papad.jpg"},
-  {id:138, name:"साबुदाणा पापड", nameEn:"Sabudana Papad", category:"Snacks", quantity:"200g", price:60,
-   image:"images/Sabudana_Papad.jpg"},
-
-  /* ─── BREAKFAST / READY MIX ─── */
-  {id:139, name:"इडली रवा", nameEn:"Idli Rava Mix", category:"Breakfast", quantity:"500g", price:55,
-   image:"images/Idli_Rava_Mix.jpg"},
-  {id:140, name:"डोसा मिक्स", nameEn:"Dosa Ready Mix", category:"Breakfast", quantity:"500g", price:70,
-   image:"images/Dosa_Ready_Mix.jpg"},
-  {id:141, name:"उपमा रवा", nameEn:"Upma Rava (Semolina)", category:"Breakfast", quantity:"500g", price:40,
-   image:"images/Upma_Rava_Semolina.jpg"},
-  {id:142, name:"पोहे", nameEn:"Pohe (Flattened Rice)", category:"Breakfast", quantity:"500g", price:45,
-   image:"images/Pohe_Flattened_Rice.jpg"},
-  {id:143, name:"साबुदाणा", nameEn:"Sago (Sabudana)", category:"Breakfast", quantity:"500g", price:70,
-   image:"images/Sago_Sabudana.jpg"},
-  {id:144, name:"नाचणी सत्व", nameEn:"Ragi Porridge Mix", category:"Breakfast", quantity:"500g", price:80,
-   image:"images/Ragi_Porridge_Mix.jpg"},
-
-  /* ─── BEVERAGES ─── */
-  {id:145, name:"आले-लसूण पेस्ट", nameEn:"Ginger-Garlic Paste", category:"Condiments", quantity:"200g", price:50,
-   image:"images/GingerGarlic_Paste.jpg"},
-  {id:146, name:"कोकम सरबत", nameEn:"Kokum Sharbat (Syrup)", category:"Beverages", quantity:"500ml", price:120,
-   image:"images/Kokum_Sharbat_Syrup.jpg"},
-  {id:147, name:"आमरस", nameEn:"Aamras (Mango Pulp)", category:"Beverages", quantity:"500g", price:100,
-   image:"images/Aamras_Mango_Pulp.jpg"},
-  {id:148, name:"तुळस बी (सब्जा)", nameEn:"Sabja / Basil Seeds", category:"Beverages", quantity:"100g", price:50,
-   image:"images/Sabja__Basil_Seeds.jpg"},
-  {id:149, name:"गुलाब पाणी", nameEn:"Rose Water", category:"Beverages", quantity:"200ml", price:60,
-   image:"images/Rose_Water.jpg"},
-
-  /* ─── PICKLES & CONDIMENTS ─── */
-  {id:150, name:"आंबा लोणचे", nameEn:"Mango Pickle (Aam Achar)", category:"Condiments", quantity:"250g", price:80,
-   image:"images/Mango_Pickle_Aam_Achar.jpg"},
-  {id:151, name:"लिंबू लोणचे", nameEn:"Lemon Pickle", category:"Condiments", quantity:"250g", price:70,
-   image:"images/Lemon_Pickle.jpg"},
-  {id:152, name:"मिरची लोणचे", nameEn:"Green Chilli Pickle", category:"Condiments", quantity:"250g", price:65,
-   image:"images/Green_Chilli_Pickle.jpg"},
-  {id:153, name:"शेंगदाणा चटणी", nameEn:"Peanut Chutney Powder", category:"Condiments", quantity:"200g", price:60,
-   image:"images/Peanut_Chutney_Powder.jpg"},
-  {id:154, name:"खोबरे चटणी पावडर", nameEn:"Dry Coconut Chutney Powder", category:"Condiments", quantity:"150g", price:70,
-   image:"images/Dry_Coconut_Chutney_Powder.jpg"},
-  {id:155, name:"टोमॅटो सॉस", nameEn:"Tomato Sauce (Organic)", category:"Condiments", quantity:"500g", price:90,
-   image:"images/Tomato_Sauce_Organic.jpg"},
-
-  /* ─── AYURVEDIC / HEALTH ─── */
-  {id:156, name:"अश्वगंधा पावडर", nameEn:"Ashwagandha Powder", category:"Ayurvedic", quantity:"100g", price:120,
-   image:"images/Ashwagandha_Powder.jpg"},
-  {id:157, name:"त्रिफळा पावडर", nameEn:"Triphala Powder", category:"Ayurvedic", quantity:"100g", price:80,
-   image:"images/Triphala_Powder.jpg"},
-  {id:158, name:"शतावरी पावडर", nameEn:"Shatavari Powder", category:"Ayurvedic", quantity:"100g", price:150,
-   image:"images/Shatavari_Powder.jpg"},
-  {id:159, name:"ब्राह्मी पावडर", nameEn:"Brahmi Powder", category:"Ayurvedic", quantity:"100g", price:90,
-   image:"images/Brahmi_Powder.jpg"},
-  {id:160, name:"गिलोय पावडर", nameEn:"Giloy Powder (Guduchi)", category:"Ayurvedic", quantity:"100g", price:70,
-   image:"images/Giloy_Powder_Guduchi.jpg"},
-  {id:161, name:"मोरिंगा पावडर", nameEn:"Moringa / Drumstick Leaf Powder", category:"Ayurvedic", quantity:"100g", price:100,
-   image:"images/Moringa__Drumstick_Leaf_Powder.jpg"},
-  {id:162, name:"तुळस पावडर", nameEn:"Tulsi Powder (Holy Basil)", category:"Ayurvedic", quantity:"100g", price:60,
-   image:"images/Tulsi_Powder_Holy_Basil.jpg"},
-  {id:163, name:"आवळा पावडर", nameEn:"Amla Powder", category:"Ayurvedic", quantity:"100g", price:70,
-   image:"images/Amla_Powder.jpg"},
-
-  /* ─── PERSONAL CARE ─── */
-  {id:164, name:"शिकेकाई पावडर", nameEn:"Shikakai Powder", category:"Personal Care", quantity:"100g", price:45,
-   image:"images/Shikakai_Powder.jpg"},
-  {id:165, name:"रिठा पावडर", nameEn:"Reetha Powder (Soapnut)", category:"Personal Care", quantity:"100g", price:50,
-   image:"images/Reetha_Powder_Soapnut.jpg"},
-  {id:166, name:"नीम पावडर", nameEn:"Neem Powder", category:"Personal Care", quantity:"100g", price:45,
-   image:"images/Neem_Powder.jpg"},
-  {id:167, name:"मुलतानी माती", nameEn:"Multani Mitti (Fuller's Earth)", category:"Personal Care", quantity:"200g", price:40,
-   image:"images/Multani_Mitti_Fullers_Earth.jpg"},
-  {id:168, name:"साबण (नारळ)", nameEn:"Coconut Soap Bar (Herbal)", category:"Personal Care", quantity:"1 Pcs", price:40,
-   image:"images/Coconut_Soap_Bar_Herbal.jpg"},
-
-  /* ─── NEW ARRIVALS (19 products) ─── */
-  {id:169, name:"अमुल्य हरिद्रा हळद", nameEn:"Amulya Haridra Turmeric Powder", category:"Spices", quantity:"200g", price:90,
-   image:"images/Amulya_Haridra_Turmeric.jpg"},
-  {id:170, name:"उडीद पापड (लसुण मिरची)", nameEn:"Urad Dal Papad (Garlic Chilli)", category:"Snacks", quantity:"200g", price:70,
-   image:"images/Urad_Dal_Papad_Lasun_Mirchi.jpg"},
-  {id:171, name:"खडा गरम मसाला", nameEn:"Whole Garam Masala (Khada)", category:"Spices", quantity:"1 Kg", price:790,
-   image:"images/Khada_Garam_Masala.jpg"},
-  {id:172, name:"खपली गहू गार्लिक ब्रेड", nameEn:"Khapli Wheat Garlic Bread", category:"Bakery", quantity:"1 Pcs", price:50,
-   image:"images/Khapli_Wheat_Garlic_Bread.jpg"},
-  {id:173, name:"खपली गहू ब्रेड", nameEn:"Khapli Wheat Bread", category:"Bakery", quantity:"300g", price:70,
-   image:"images/Khapli_Wheat_Bread.jpg"},
-  {id:174, name:"खोबरे वाटी", nameEn:"Dry Coconut Halves (Khobre Vati)", category:"Fruits", quantity:"250g", price:60,
-   image:"images/Khobre_Vati.jpg"},
-  {id:175, name:"गवती चहा", nameEn:"Lemongrass (Gavati Chaha)", category:"Beverages", quantity:"1 Bunch", price:20,
-   image:"images/Gavati_Chaha.jpg"},
-  {id:176, name:"गुलकंद", nameEn:"Gulkand (Rose Petal Preserve)", category:"Ayurvedic", quantity:"250g", price:150,
-   image:"images/Gulkand.jpg"},
-  {id:177, name:"तीळ चटणी", nameEn:"Sesame Chutney (Til Chutney)", category:"Condiments", quantity:"100g", price:50,
-   image:"images/Til_Chutney.jpg"},
-  {id:178, name:"तोंडले", nameEn:"Tindora (Ivy Gourd)", category:"Vegetables", quantity:"500g", price:40,
-   image:"images/Tondli.jpg"},
-  {id:179, name:"नवजीवन हींग", nameEn:"Navjeevan Hing (Asafoetida)", category:"Spices", quantity:"100g", price:80,
-   image:"images/Navjeevan_Hing.jpg"},
-  {id:180, name:"नागली नुडल्स", nameEn:"Nagli Noodles (Ragi Noodles)", category:"Snacks", quantity:"200g", price:60,
-   image:"images/Nagli_Noodles.jpg"},
-  {id:181, name:"नागली पापड", nameEn:"Nagli Papad (Ragi Papad)", category:"Snacks", quantity:"200g", price:60,
-   image:"images/Nagli_Papad.jpg"},
-  {id:182, name:"नागली पास्ता", nameEn:"Nagli Pasta (Ragi Pasta)", category:"Snacks", quantity:"200g", price:65,
-   image:"images/Nagli_Pasta.jpg"},
-  {id:183, name:"फ्रेश चिंच", nameEn:"Fresh Tamarind", category:"Vegetables", quantity:"250g", price:40,
-   image:"images/Fresh_Tamarind.jpg"},
-  {id:184, name:"भजनी पीठ", nameEn:"Bhajani Peeth (Bhajani Flour)", category:"Flour", quantity:"250g", price:60,
-   image:"images/Bhajani_Peeth.jpg"},
-  {id:185, name:"मेतकुट", nameEn:"Metkut", category:"Condiments", quantity:"100g", price:40,
-   image:"images/Metkut.jpg"},
-  {id:186, name:"लसून खोबरे चटणी", nameEn:"Garlic Coconut Chutney", category:"Condiments", quantity:"100g", price:70,
-   image:"images/Lasun_Khobre_Chutney.jpg"},
-  {id:187, name:"वांगे", nameEn:"Brinjal (Vange)", category:"Vegetables", quantity:"500g", price:45,
-   image:"images/Vange_Brinjal.jpg"},
-];
-
-const CATEGORIES = [
-  {id:"All",          label:"सर्व",           icon:"🌿"},
-  {id:"Dal",          label:"डाळ",            icon:"🫘"},
-  {id:"Grains",       label:"धान्य",          icon:"🌾"},
-  {id:"Flour",        label:"पीठ / आटा",     icon:"🫓"},
-  {id:"Dairy",        label:"दुग्धजन्य",     icon:"🥛"},
-  {id:"Sweeteners",   label:"गोड",            icon:"🍯"},
-  {id:"Oils",         label:"तेल",            icon:"🫙"},
-  {id:"Spices",       label:"मसाले",          icon:"🌶️"},
-  {id:"Nuts",         label:"सुका मेवा",     icon:"🥜"},
-  {id:"Vegetables",   label:"भाज्या",        icon:"🥕"},
-  {id:"Fruits",       label:"फळे",            icon:"🍎"},
-  {id:"Snacks",       label:"नाश्ता / स्नॅक्स",icon:"🍿"},
-  {id:"Bakery",       label:"बेकरी",          icon:"🍞"},
-  {id:"Breakfast",    label:"ब्रेकफास्ट",    icon:"🥣"},
-  {id:"Beverages",    label:"पेये",           icon:"🥤"},
-  {id:"Condiments",   label:"लोणचे / चटणी",  icon:"🫙"},
-  {id:"Ayurvedic",    label:"आयुर्वेदिक",    icon:"🌿"},
-  {id:"Personal Care",label:"वैयक्तिक काळजी",icon:"🌿"},
-];
+/* CATEGORIES metadata now lives in products.js as window.PRODUCT_CATEGORIES
+   (kept there so the Admin Panel's category dropdown and the storefront
+   share a single source of truth). The CAT_TABS array below (with icons
+   and colors for the navbar) remains here as presentation-only data. */
 
 const ADMIN_WA = "917743917248";
 const MAP_DIRECTIONS = "https://maps.app.goo.gl/VJ8pLNnBW391obu6A";
@@ -498,8 +66,8 @@ function useCart(){
     setCart(prev=>{
       const ex=prev.find(i=>i.lineKey===lineKey);
       if(ex){
-        // Same product + same quantity: just bump count
-        return prev.map(i=>i.lineKey===lineKey?{...i,count:(i.count||1)+1}:i);
+        // Same product + same quantity: bump quantity
+        return prev.map(i=>i.lineKey===lineKey?{...i,quantity:Number(i.quantity)+1}:i);
       }
       return [...prev,{
         lineKey,
@@ -511,7 +79,6 @@ function useCart(){
         unit:     qtyData.displayQty,  // e.g. "250g", "1.5kg"
         grams:    qtyData.grams,
         quantity: 1,                   // how many packs of this size
-        count:    1,
       }];
     });
   },[]);
@@ -542,13 +109,36 @@ function Toast({toast}){
   return <div className={`toast ${toast.show?"show":""}`}><span>🌿</span><span>{toast.msg}</span></div>;
 }
 
-/* ════ HEADER ════ */
-function Header({count,cart,page,setPage}){
-  const [mob,     setMob]     = React.useState(false);
-  const [scrolled,setScrolled]= React.useState(false);
+/* ════ CATEGORY DATA (shared by Header catbar + ProductsSection) ════ */
+const CAT_TABS=[
+  {val:"All",        icon:"fa-solid fa-border-all",        label:"All",              color:"#2D6A4F"},
+  {val:"Dal",        icon:"fa-solid fa-bowl-food",         label:"Pulses / डाळ",     color:"#B5651D"},
+  {val:"Grains",     icon:"fa-solid fa-wheat-awn",         label:"Grains / धान्य",   color:"#C9963B"},
+  {val:"Flour",      icon:"fa-solid fa-bag-shopping",      label:"Flour / पीठ",      color:"#D9A066"},
+  {val:"Dairy",      icon:"fa-solid fa-cow",               label:"Dairy / दुग्ध",    color:"#5B8DEF"},
+  {val:"Sweeteners", icon:"fa-solid fa-candy-cane",        label:"Sweet / गोड",      color:"#E0578A"},
+  {val:"Oils",       icon:"fa-solid fa-bottle-droplet",    label:"Oils / तेल",       color:"#E8B23A"},
+  {val:"Spices",     icon:"fa-solid fa-pepper-hot",        label:"Spices / मसाले",   color:"#D64545"},
+  {val:"Nuts",       icon:"fa-solid fa-seedling",          label:"Dry Fruits",       color:"#8D6E3A"},
+  {val:"Vegetables", icon:"fa-solid fa-carrot",            label:"Veggies / भाज्या", color:"#F0792B"},
+  {val:"Fruits",     icon:"fa-solid fa-apple-whole",       label:"Fruits / फळे",     color:"#E0413A"},
+  {val:"Snacks",     icon:"fa-solid fa-cookie-bite",       label:"Snacks / नाश्ता",  color:"#A9762F"},
+  {val:"Breakfast",  icon:"fa-solid fa-mug-hot",           label:"Breakfast",        color:"#8B5E3C"},
+  {val:"Beverages",  icon:"fa-solid fa-glass-water",       label:"Beverages",        color:"#2EA8C9"},
+  {val:"Condiments", icon:"fa-solid fa-jar",               label:"Pickles / लोणचे",  color:"#9B6B2C"},
+  {val:"Ayurvedic",  icon:"fa-solid fa-leaf",              label:"Ayurvedic",        color:"#3FA66B"},
+  {val:"Personal Care",icon:"fa-solid fa-hand-sparkles",   label:"Personal Care",    color:"#B26FD0"},
+  {val:"Bakery",     icon:"fa-solid fa-bread-slice",       label:"Bakery / बेकरी",   color:"#C07C3A"},
+];
 
-  /* Transparent on hero, white after scroll.
-     On cart page: always white (no hero behind) */
+/* ════ HEADER ════ */
+function Header({cart,page,setPage,cat,setCat}){
+  const [mob,      setMob]      = React.useState(false);
+  const [scrolled, setScrolled] = React.useState(false);
+  const [catBarOn, setCatBarOn] = React.useState(false);
+  const scrollRef                = React.useRef(null);
+
+  /* Transparent on hero, white after scroll. Cart page: always white */
   React.useEffect(()=>{
     if(page==="cart"){ setScrolled(true); return; }
     const onScroll=()=>setScrolled(window.scrollY > 60);
@@ -557,6 +147,39 @@ function Header({count,cart,page,setPage}){
     return ()=>window.removeEventListener("scroll", onScroll);
   },[page]);
 
+  /* Show category bar only while #products section is intersecting viewport */
+  React.useEffect(()=>{
+    if(page!=="home"){ setCatBarOn(false); return; }
+    const el=document.getElementById("products");
+    if(!el){ setCatBarOn(false); return; }
+    const obs=new IntersectionObserver(
+      ([entry])=>setCatBarOn(entry.isIntersecting),
+      {rootMargin:"-64px 0px 0px 0px", threshold:0}
+    );
+    obs.observe(el);
+    return ()=>obs.disconnect();
+  },[page]);
+
+  /* Sync filter-bar sticky top via CSS var: 64px (navbar only) or 110px (with catbar) */
+  React.useEffect(()=>{
+    document.body.style.setProperty("--filter-top", catBarOn?"110px":"64px");
+  },[catBarOn]);
+
+  /* Arrow scroll: shift strip by ~3 tab widths */
+  const scrollCats=(dir)=>{
+    const el=scrollRef.current;
+    if(!el) return;
+    el.scrollBy({left: dir*220, behavior:"smooth"});
+  };
+
+  /* Scroll active tab into view whenever cat changes */
+  React.useEffect(()=>{
+    const strip=scrollRef.current;
+    if(!strip) return;
+    const active=strip.querySelector(".catbar-tab.active");
+    if(active) active.scrollIntoView({behavior:"smooth",block:"nearest",inline:"nearest"});
+  },[cat]);
+
   const navTo=(anchor)=>{
     setMob(false);
     if(page==="cart"){setPage("home");setTimeout(()=>{const el=document.querySelector(anchor);if(el)el.scrollIntoView({behavior:"smooth"});},120);}
@@ -564,16 +187,17 @@ function Header({count,cart,page,setPage}){
   };
 
   const navLinks=[
-    {label:"Home",anchor:"#home"},
+    {label:"Home",    anchor:"#home"},
     {label:"Products",anchor:"#products"},
-    {label:"About",anchor:"#story"},
-    {label:"Map",anchor:"#map"},
-    {label:"Contact",anchor:"#contact"},
+    {label:"About",   anchor:"#story"},
+    {label:"Map",     anchor:"#map"},
+    {label:"Contact", anchor:"#contact"},
   ];
 
   return(
     <>
-      <header className={`header${scrolled?" scrolled":""}`}>
+      <header className={`header${scrolled?" scrolled":""}${catBarOn?" has-catbar":""}`}>
+        {/* ── Main navbar row ── */}
         <nav className="navbar container">
           <a className="logo" href="#" onClick={e=>{e.preventDefault();setPage("home");}}>
             <div className="logo-icon"><i className="fa-solid fa-leaf"/></div>
@@ -587,8 +211,9 @@ function Header({count,cart,page,setPage}){
             ))}
           </ul>
           <div className="nav-icons">
-            <button className="cart-btn" onClick={()=>setPage("cart")}>
-              <i className="fa-solid fa-bag-shopping"/>
+            <button className="cart-btn" onClick={()=>setPage("cart")} aria-label="Cart">
+              <span className="cart-emoji" aria-hidden="true">🛒</span>
+              <span className="cart-label">Cart</span>
               {cart.length>0&&<span className="cart-count">{cart.length}</span>}
             </button>
             <button className="menu-toggle" onClick={()=>setMob(true)}>
@@ -596,7 +221,41 @@ function Header({count,cart,page,setPage}){
             </button>
           </div>
         </nav>
+
+        {/* ── Category bar: second tier, slides in under navbar ── */}
+        <div className={`catbar${catBarOn?" catbar-visible":""}`}>
+          <div className="catbar-inner container">
+            <button className="catbar-arrow catbar-arrow-l" onClick={()=>scrollCats(-1)} aria-label="Scroll categories left">
+              <i className="fa-solid fa-chevron-left"/>
+            </button>
+            <div className="catbar-strip" ref={scrollRef}>
+              {CAT_TABS.map(c=>(
+                <button
+                  key={c.val}
+                  className={`catbar-tab${cat===c.val?" active":""}`}
+                  style={{"--tab-color":c.color}}
+                  onClick={()=>{
+                    setCat(c.val);
+                    const sec=document.getElementById("products");
+                    if(sec){
+                      const top=sec.getBoundingClientRect().top+window.scrollY - 108;
+                      window.scrollTo({top:Math.max(0,top),behavior:"smooth"});
+                    }
+                  }}
+                >
+                  <i className={c.icon} aria-hidden="true"/>
+                  <span>{c.label}</span>
+                </button>
+              ))}
+            </div>
+            <button className="catbar-arrow catbar-arrow-r" onClick={()=>scrollCats(1)} aria-label="Scroll categories right">
+              <i className="fa-solid fa-chevron-right"/>
+            </button>
+          </div>
+        </div>
       </header>
+
+      {/* ── Mobile drawer ── */}
       {mob&&(
         <div className="mob-drawer">
           <div className="mob-backdrop" onClick={()=>setMob(false)}/>
@@ -608,7 +267,7 @@ function Header({count,cart,page,setPage}){
             ))}
             <div className="mob-divider"/>
             <a href="#" onClick={e=>{e.preventDefault();setMob(false);setPage("cart");}}>
-              <i className="fa-solid fa-bag-shopping"/> Cart {cart.length>0&&`(${cart.length})`}
+              🛒 Cart {cart.length>0&&`(${cart.length})`}
             </a>
           </div>
         </div>
@@ -849,7 +508,7 @@ function QtyModal({product, onConfirm, onClose}){
             <img
               src={product.image}
               alt={product.name}
-              onError={e=>{e.target.src="images/Organic_Product.jpg";}}
+              onError={e=>{e.target.src="images/products/Organic_Product.jpg";}}
             />
           </div>
           <div className="qm-title-wrap">
@@ -936,6 +595,7 @@ function QtyModal({product, onConfirm, onClose}){
 function ProductCard({product, onAdd}){
   const [modalOpen, setModalOpen] = React.useState(false);
   const [justAdded, setJustAdded] = React.useState(false);
+  const available = product.available !== false; // default true for legacy/static data
 
   const handleConfirm = (qtyData) => {
     onAdd(product, qtyData);
@@ -946,14 +606,19 @@ function ProductCard({product, onAdd}){
   return(
     <>
       {/* ── Compact product card — always visible ── */}
-      <div className="product-card">
-        <div className="p-img">
+      <div className="product-card" style={available?{}:{opacity:.65}}>
+        <div className="p-img" style={{position:"relative"}}>
           <img
             src={product.image}
             alt={product.name}
             loading="lazy"
-            onError={e=>{e.target.src="images/Organic_Product.jpg";}}
+            onError={e=>{e.target.src="images/products/Organic_Product.jpg";}}
           />
+          {!available&&(
+            <div style={{position:"absolute",top:"8px",left:"8px",background:"#D64545",color:"#fff",fontSize:".68rem",fontWeight:700,padding:"3px 9px",borderRadius:"8px"}}>
+              Out of Stock
+            </div>
+          )}
         </div>
         <div className="p-body">
           <div className="p-name">{product.name}</div>
@@ -964,17 +629,18 @@ function ProductCard({product, onAdd}){
           </div>
           <button
             className="add-btn"
-            style={justAdded?{background:"linear-gradient(135deg,#1a7a4a,#27ae60)"}:{}}
-            onClick={()=>setModalOpen(true)}
+            disabled={!available}
+            style={!available?{opacity:.55,cursor:"not-allowed"}:justAdded?{background:"linear-gradient(135deg,#1a7a4a,#27ae60)"}:{}}
+            onClick={()=>available&&setModalOpen(true)}
           >
             <i className={`fa-solid ${justAdded?"fa-check":"fa-cart-plus"}`}/>
-            {justAdded?"Added!":"Select Product"}
+            {!available?"Out of Stock":justAdded?"Added!":"Select Product"}
           </button>
         </div>
       </div>
 
       {/* ── Qty Modal — portal-style, outside card DOM flow ── */}
-      {modalOpen && (
+      {modalOpen && available && (
         <QtyModal
           product={product}
           onConfirm={handleConfirm}
@@ -986,12 +652,31 @@ function ProductCard({product, onAdd}){
 }
 
 /* ════ PRODUCTS SECTION ════ */
-function ProductsSection({onAdd}){
-  const [cat,    setCat]   = React.useState("All");
+function ProductsSection({onAdd,cat,setCat}){
   const [search, setSearch]= React.useState("");
+  const [products, setProducts] = React.useState(window.DEFAULT_PRODUCTS||[]);
+  const [loading, setLoading] = React.useState(true);
+
+  /* Realtime subscription: live-updates the storefront the moment
+     an admin adds/edits/removes a product or toggles availability.
+     Falls back to the original static catalog automatically if
+     Firestore is empty or not configured (see products.js). */
+  React.useEffect(()=>{
+    let unsub = ()=>{};
+    if(window.ProductsAPI){
+      unsub = window.ProductsAPI.subscribeProducts(
+        (list)=>{ setProducts(list); setLoading(false); },
+        ()=>{ setLoading(false); }
+      );
+    }else{
+      setProducts(window.DEFAULT_PRODUCTS||[]);
+      setLoading(false);
+    }
+    return ()=>unsub();
+  },[]);
 
   const filtered = React.useMemo(()=>{
-    let list = [...PRODUCTS];
+    let list = [...products];
     if(cat !== "All") list = list.filter(p=>p.category===cat);
     if(search.trim()){
       const q = search.toLowerCase();
@@ -1002,7 +687,7 @@ function ProductsSection({onAdd}){
       );
     }
     return list;
-  },[cat,search]);
+  },[products,cat,search]);
 
   return(
     <section className="products-section" id="products">
@@ -1013,17 +698,12 @@ function ProductsSection({onAdd}){
           <div className="sec-header" style={{textAlign:"center"}}>
             <div className="sec-tag">🛒 आमची उत्पादने</div>
             <h2 className="sec-title">Fresh Organic Products</h2>
-            <p className="sec-sub" style={{margin:"0 auto"}}>187+ products directly from our certified organic farm.</p>
+            <p className="sec-sub" style={{margin:"0 auto"}}>{products.length}+ products directly from our certified organic farm.</p>
           </div>
         </div>
 
-        {/* ── Floating sticky filter bar ──
-            Single row: [🔍 Search text field | Category ▼]
-            Below: result count
-        ── */}
+        {/* ── Search bar only — categories now live in the navbar catbar ── */}
         <div className="filter-bar">
-
-          {/* Search row */}
           <div className="fb-search-row">
             <i className="fa-solid fa-magnifying-glass fb-search-icon"/>
             <input
@@ -1033,49 +713,33 @@ function ProductsSection({onAdd}){
               value={search}
               onChange={e=>setSearch(e.target.value)}
             />
-          </div>
-
-          {/* Category horizontal scroll bar — Option D */}
-          <div className="fb-cat-scroll">
-            {[
-              {val:"All",      icon:"fa-solid fa-border-all",   label:"All",                color:"#2D6A4F"},
-              {val:"Dal",      icon:"fa-solid fa-bowl-food",    label:"Pulses / डाळ",        color:"#B5651D"},
-              {val:"Grains",   icon:"fa-solid fa-wheat-awn",    label:"Grains / धान्य",       color:"#C9963B"},
-              {val:"Flour",    icon:"fa-solid fa-bag-shopping", label:"Flour / पीठ",         color:"#D9A066"},
-              {val:"Dairy",    icon:"fa-solid fa-cow",          label:"Dairy / दुग्ध",        color:"#5B8DEF"},
-              {val:"Sweeteners",icon:"fa-solid fa-candy-cane",  label:"Sweet / गोड",         color:"#E0578A"},
-              {val:"Oils",     icon:"fa-solid fa-bottle-droplet",label:"Oils / तेल",          color:"#E8B23A"},
-              {val:"Spices",   icon:"fa-solid fa-pepper-hot",   label:"Spices / मसाले",       color:"#D64545"},
-              {val:"Nuts",     icon:"fa-solid fa-seedling",     label:"Dry Fruits",          color:"#8D6E3A"},
-              {val:"Vegetables",icon:"fa-solid fa-carrot",      label:"Veggies / भाज्या",     color:"#F0792B"},
-              {val:"Fruits",   icon:"fa-solid fa-apple-whole",  label:"Fruits / फळे",        color:"#E0413A"},
-              {val:"Snacks",   icon:"fa-solid fa-cookie-bite",  label:"Snacks / नाश्ता",      color:"#A9762F"},
-              {val:"Breakfast",icon:"fa-solid fa-mug-hot",      label:"Breakfast",           color:"#8B5E3C"},
-              {val:"Beverages",icon:"fa-solid fa-glass-water",  label:"Beverages",           color:"#2EA8C9"},
-              {val:"Condiments",icon:"fa-solid fa-jar",         label:"Pickles / लोणचे",      color:"#9B6B2C"},
-              {val:"Ayurvedic",icon:"fa-solid fa-leaf",         label:"Ayurvedic",           color:"#3FA66B"},
-              {val:"Personal Care",icon:"fa-solid fa-hand-sparkles",label:"Personal Care",   color:"#B26FD0"},
-            ].map(c=>(
-              <div
-                key={c.val}
-                className={`fb-cat-item${cat===c.val?" active":""}`}
-                style={{"--cat-color":c.color}}
-                onClick={()=>setCat(c.val)}
+            {search&&(
+              <button
+                className="fb-clear-btn"
+                onClick={()=>setSearch("")}
+                aria-label="Clear search"
               >
-                <i className={c.icon}/>
-                <span>{c.label}</span>
-              </div>
-            ))}
+                <i className="fa-solid fa-xmark"/>
+              </button>
+            )}
           </div>
-
-          {/* Result count */}
           <div className="fb-count">
+            {cat!=="All"&&(
+              <button className="fb-active-cat" onClick={()=>setCat("All")}>
+                {cat} <i className="fa-solid fa-xmark" style={{fontSize:".65rem",marginLeft:"3px"}}/>
+              </button>
+            )}
             Showing <strong>{filtered.length}</strong> product{filtered.length!==1?"s":""}
           </div>
         </div>
 
         <div className="product-grid">
-          {filtered.length===0?(
+          {loading?(
+            <div className="empty-prods">
+              <div className="ico">🌿</div>
+              <h3>Loading products…</h3>
+            </div>
+          ):filtered.length===0?(
             <div className="empty-prods">
               <div className="ico">🔍</div>
               <h3>No products found</h3>
@@ -1128,8 +792,11 @@ function StorySection(){
 
 /* ════ GALLERY: BENTO GRID ════ */
 function GallerySection(){
-  /* Farm + store photos, arranged in a bento-style grid sized to each photo's natural landscape shape. */
-  const photos=[
+  /* Farm + store photos, arranged in a bento-style grid sized to each
+     photo's natural landscape shape. Fully static — these files live
+     in /images/gallery/ and are NOT managed via Firestore or Firebase
+     Storage. (Only product data is dynamic — see products.js.) */
+  const photos = [
     {src:"images/gallery/farm-sunset.jpg",      size:"big",  alt:"Sunset over our organic vegetable fields", cap:"Sunset over the fields"},
     {src:"images/gallery/terraced-farm.jpg",     size:"reg",  alt:"Terraced farm plots with mixed vegetable crops", cap:"Our terraced plots"},
     {src:"images/gallery/farmer-harvesting.jpg", size:"reg",  alt:"Farmer hand-harvesting fresh greens", cap:"Hand-harvested"},
@@ -1357,7 +1024,7 @@ function Footer({setPage}){
           </div>
         </div>
         <div className="footer-bottom">
-          <p>© {new Date().getFullYear()} Organic Farm, Nashik. Made with 🌿 love.</p>
+          <p>© {new Date().getFullYear()} Organic Farm, Nashik. Made with 🌿 love. · <a href="/admin" style={{color:"inherit",opacity:.55,textDecoration:"none",fontSize:".78rem"}}>Admin Login</a></p>
           <div className="social-links">
             <a className="soc-link" href={`https://wa.me/${ADMIN_WA}`} target="_blank" rel="noreferrer"><i className="fa-brands fa-whatsapp"/></a>
             <a className="soc-link" href="#"><i className="fa-brands fa-instagram"/></a>
@@ -1370,15 +1037,14 @@ function Footer({setPage}){
 }
 
 /* ════ HOME PAGE ════ */
-function HomePage({cart,addToCart,setPage,showToast}){
-  const handleAdd=(p,qtyData)=>{addToCart(p,qtyData);};
+function HomePage({cart,addToCart,setPage,cat,setCat}){
   return(
     <>
       <div id="home">
         <Hero setPage={setPage}/>
       </div>
       <TrustBand/>
-      <ProductsSection onAdd={handleAdd}/>
+      <ProductsSection onAdd={addToCart} cat={cat} setCat={setCat}/>
       <StorySection/>
       <GallerySection/>
       <MapSection/>
@@ -1404,12 +1070,6 @@ function OrderModal({order,cart,onClose,onWA}){
           <div className="ci-box"><div className="ci-lbl">Phone</div><div className="ci-val">{order.phone}</div></div>
           <div className="ci-box"><div className="ci-lbl">Address</div><div className="ci-val">{order.address}</div></div>
           <div className="ci-box"><div className="ci-lbl">Pin Code</div><div className="ci-val">{order.pin}</div></div>
-          {order.mapLink&&(
-            <div className="ci-box">
-              <div className="ci-lbl">Live Location</div>
-              <div className="ci-val"><a href={order.mapLink} target="_blank" rel="noreferrer">📍 View on Google Maps</a></div>
-            </div>
-          )}
         </div>
 
         <div className="ord-sec">📦 Items Ordered</div>
@@ -1443,7 +1103,7 @@ function OrderModal({order,cart,onClose,onWA}){
 
 /* ════ CART PAGE ════ */
 function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
-  const [form,setF]=React.useState({name:"",phone:"",address:"",pin:"",mapLink:""});
+  const [form,setF]=React.useState({name:"",phone:"",address:"",pin:""});
   const [errs,setE]=React.useState({});
   const [modal,setModal]=React.useState(false);
   const [confirmedOrder,setConfirmed]=React.useState(null);
@@ -1497,7 +1157,6 @@ function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
     msg += `Phone    : ${form.phone}\n`;
     msg += `Address  : ${form.address}\n`;
     msg += `Pin Code : ${form.pin}\n`;
-    if(form.mapLink) msg += `📍 Live Location : ${form.mapLink}\n`;
     msg += "\n";
     msg += "📦 *Items Ordered*\n\n";
     cart.forEach((item, idx) => {
@@ -1512,21 +1171,19 @@ function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
 
   const handleWA=()=>{
     const msg=buildWAMsg();
-    // Open WhatsApp first, then clear cart so order data is safe
-    const waOpened = window.open(`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(msg)}`,"_blank");
-    // Only clear if window opened successfully
+    const waUrl=`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(msg)}`;
+    const waOpened = window.open(waUrl,"_blank");
     if(waOpened !== null){
+      // Popup opened successfully — safe to clear now
       clearCart();
       setModal(false);
       setPage("home");
       showToast("Order sent on WhatsApp! 🎉");
     } else {
-      // Fallback: location.href for mobile browsers that block window.open
-      window.location.href=`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(msg)}`;
-      clearCart();
-      setModal(false);
-      setPage("home");
-      showToast("Order sent on WhatsApp! 🎉");
+      // Fallback for mobile browsers that block window.open:
+      // Save a flag so we can clear the cart after returning from WhatsApp
+      localStorage.setItem("pendingClearCart","1");
+      window.location.href = waUrl;
     }
   };
 
@@ -1554,9 +1211,9 @@ function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
           ):(
             <>
               {cart.map(item=>(
-                <div className="cart-card" key={item.id}>
+                <div className="cart-card" key={item.lineKey}>
                   <div className="c-item-img">
-                    <img src={item.image} alt={item.name} onError={e=>{e.target.src="images/Organic_Product.jpg";}}/>
+                    <img src={item.image} alt={item.name} onError={e=>{e.target.src="images/products/Organic_Product.jpg";}}/>
                   </div>
                   <div className="c-item-info">
                     <div className="c-item-name">{item.name}</div>
@@ -1644,9 +1301,19 @@ function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
 /* ════ APP ROOT ════ */
 function App(){
   const [page,setPage]=React.useState("home");
+  const [cat,setCat]=React.useState("All");
   const {cart,addToCart,updateQty,removeItem,clearCart}=useCart();
   const {toast,showToast}=useToast();
   const count=cartCount(cart);
+
+  React.useEffect(()=>{
+    // Clear cart if user is returning from a mobile WhatsApp redirect
+    if(localStorage.getItem("pendingClearCart")==="1"){
+      localStorage.removeItem("pendingClearCart");
+      clearCart();
+      showToast("Order sent on WhatsApp! 🎉");
+    }
+  },[]);
 
   React.useEffect(()=>{window.scrollTo({top:0,behavior:"smooth"});},[page]);
 
@@ -1669,8 +1336,8 @@ function App(){
 
   return(
     <>
-      <Header count={count} cart={cart} page={page} setPage={setPage}/>
-      {page==="home"&&<HomePage cart={cart} addToCart={addToCart} setPage={setPage} showToast={showToast}/>}
+      <Header cart={cart} page={page} setPage={setPage} cat={cat} setCat={setCat}/>
+      {page==="home"&&<HomePage cart={cart} addToCart={addToCart} setPage={setPage} cat={cat} setCat={setCat}/>}
       {page==="cart"&&<CartPage cart={cart} updateQty={updateQty} removeItem={removeItem} clearCart={clearCart} setPage={setPage} showToast={showToast}/>}
       {page==="home"&&<StickyCart cart={cart} setPage={setPage}/>}
       <Toast toast={toast}/>
