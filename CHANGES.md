@@ -1,39 +1,5 @@
 # Changes Made — Static → Dynamic Conversion
 
-## Hotfix (latest)
-
-Two bugs reported from a live deployment, both in `admin.js` /
-`products.js`:
-
-1. **Product thumbnails 404'd in the Admin Panel** (`/admin/images/products/...`
-   instead of `/images/products/...`). Cause: the table thumbnail used the
-   stored root-relative path directly (`src={p.image}`), but
-   `/admin/index.html` resolves relative paths against `/admin/`, not the
-   site root. Fix: added a `toAdminSrc()` helper in `admin.js` that
-   prefixes `../` for root-relative paths, applied to every `<img>` in the
-   Admin Panel.
-2. **`TypeError: n.indexOf is not a function` when saving an edited
-   product.** Cause: when the Firestore `products` collection is empty
-   (e.g. "Import Original Catalog" hasn't been run yet) or temporarily
-   unreachable, the panel was *displaying* the built-in fallback catalog
-   but still *labeling* it "live from Firestore" and leaving Edit/Delete/
-   Toggle/Reorder enabled. Fallback items have plain numeric `id`s (from
-   `DEFAULT_PRODUCTS`), and passing a number into Firestore's
-   `.collection().doc(id)` crashes deep inside the SDK with this cryptic
-   error instead of a clear message. Fix, two layers:
-   - `products.js`: `subscribeProducts` now reports a second `isLive`
-     argument so callers know whether the list is real Firestore data;
-     `updateProduct`/`deleteProduct`/`setAvailability`/`reorderProducts`
-     now call a `requireLiveId()` guard that throws a clear, actionable
-     error ("Click Import Original Catalog first…") instead of crashing.
-   - `admin.js`: `ProductsManager` tracks `isLive` and disables
-     Add/Edit/Delete/Toggle/Reorder whenever it's `false`, with a banner
-     pointing the admin at the "Import Original Catalog" button.
-
-No schema, security-rule, or storefront changes were needed for this fix.
-
----
-
 > ⚠️ **Superseded in part.** This document describes the *original*
 > conversion, which used Firebase Storage for image uploads and gave
 > the gallery its own Firestore collection. A follow-up revision
