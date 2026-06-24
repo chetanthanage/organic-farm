@@ -572,28 +572,35 @@ const ProductsAPI = (function(){
   /* ── Realtime subscription for the storefront. Returns an
         unsubscribe function. Calls back with DEFAULT_PRODUCTS
         immediately if Firestore isn't configured, or once if
-        the collection is empty. ── */
+        the collection is empty.
+
+        `onData(list, isLive)` — the second argument tells callers
+        whether `list` is real Firestore data (`true`) or the
+        static fallback catalog (`false`). The Admin Panel uses
+        this to disable editing on fallback data (see admin.js),
+        since fallback items don't have real Firestore document
+        IDs and can't be updated/deleted. ── */
   function subscribeProducts(onData, onError){
     if(!fsReady()){
-      onData([...DEFAULT_PRODUCTS]);
+      onData([...DEFAULT_PRODUCTS], false);
       return ()=>{};
     }
     try{
       return window.firebaseDB.collection(COLLECTION).orderBy("order","asc")
         .onSnapshot(
           snap=>{
-            if(snap.empty){ onData([...DEFAULT_PRODUCTS]); return; }
-            onData(snap.docs.map(docToProduct));
+            if(snap.empty){ onData([...DEFAULT_PRODUCTS], false); return; }
+            onData(snap.docs.map(docToProduct), true);
           },
           err=>{
             console.error("ProductsAPI.subscribeProducts error, using defaults:", err);
-            onData([...DEFAULT_PRODUCTS]);
+            onData([...DEFAULT_PRODUCTS], false);
             if(onError) onError(err);
           }
         );
     }catch(err){
       console.error("ProductsAPI.subscribeProducts failed, using defaults:", err);
-      onData([...DEFAULT_PRODUCTS]);
+      onData([...DEFAULT_PRODUCTS], false);
       return ()=>{};
     }
   }
@@ -641,6 +648,7 @@ const ProductsAPI = (function(){
   /* ── Admin: update a product (partial update). ── */
   async function updateProduct(id, data){
     requireAuth();
+    requireLiveId(id);
     const payload = {...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
     delete payload.id;
     await window.firebaseDB.collection(COLLECTION).doc(id).update(payload);
@@ -651,12 +659,14 @@ const ProductsAPI = (function(){
         the Firestore document is removed. ── */
   async function deleteProduct(id){
     requireAuth();
+    requireLiveId(id);
     await window.firebaseDB.collection(COLLECTION).doc(id).delete();
   }
 
   /* ── Admin: toggle availability quickly. ── */
   async function setAvailability(id, available){
     requireAuth();
+    requireLiveId(id);
     await window.firebaseDB.collection(COLLECTION).doc(id).update({
       available: !!available,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -667,6 +677,7 @@ const ProductsAPI = (function(){
         `orderedIds` = array of doc ids in the desired order. ── */
   async function reorderProducts(orderedIds){
     requireAuth();
+    orderedIds.forEach(requireLiveId);
     const batch = window.firebaseDB.batch();
     orderedIds.forEach((id, idx)=>{
       batch.update(window.firebaseDB.collection(COLLECTION).doc(id), {order: idx});
@@ -706,6 +717,21 @@ const ProductsAPI = (function(){
   function requireAuth(){
     if(!window.firebaseAuth || !window.firebaseAuth.currentUser){
       throw new Error("Not authenticated — admin login required for write operations.");
+    }
+  }
+
+  /* ── Guard against operating on a fallback/static product (which
+        has a plain number for `id`, e.g. 1, 2, 3 from DEFAULT_PRODUCTS,
+        not a real Firestore document ID). Without this check, calling
+        .doc(id) with a number crashes deep inside the Firestore SDK
+        with a cryptic "n.indexOf is not a function" error instead of
+        a clear message. ── */
+  function requireLiveId(id){
+    if(typeof id !== "string" || !id){
+      throw new Error(
+        "This product is showing the built-in catalog, not real Firestore data yet. " +
+        "Click \"Import Original Catalog\" first, then try editing again."
+      );
     }
   }
 

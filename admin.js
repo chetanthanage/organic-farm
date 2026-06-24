@@ -31,6 +31,24 @@
 const {useState, useEffect, useMemo, useRef} = React;
 
 /* ════════════════════════════════════════════════════
+   IMAGE PATH HELPER
+   Every image path stored in Firestore/DEFAULT_PRODUCTS is
+   ROOT-RELATIVE (e.g. "images/products/tomato.jpg") because
+   that's what the storefront at "/" needs. This admin page lives
+   one folder down at "/admin/index.html", so the SAME string used
+   directly as an <img src> here resolves against "/admin/" and
+   404s (e.g. requests "/admin/images/products/tomato.jpg").
+   Every <img> in this file must go through this helper instead of
+   using a raw `image`/`value` path.
+   ════════════════════════════════════════════════════ */
+function toAdminSrc(path){
+  if(!path) return "../images/products/Organic_Product.jpg";
+  if(/^(https?:|data:|\.\.\/|\/)/.test(path)) return path; // already absolute/admin-relative
+  return `../${path}`;
+}
+
+
+/* ════════════════════════════════════════════════════
    NOT CONFIGURED BANNER
    Shown if firebase-config.js still has placeholder
    values — guides the owner to SETUP_GUIDE.md instead
@@ -143,14 +161,13 @@ function Sidebar({user, onLogout}){
 function ImagePathPicker({value, onChange}){
   const manifest = window.PRODUCT_IMAGE_MANIFEST || [];
   const currentFile = value ? value.replace(/^images\/products\//,"") : "";
-  const previewSrc = value || "images/products/Organic_Product.jpg";
 
   return(
     <div className="adm-fg">
       <label>Product Image</label>
       <img
         className="adm-img-preview"
-        src={previewSrc.startsWith("../")?previewSrc:`../${previewSrc}`}
+        src={toAdminSrc(value)}
         alt=""
         onError={e=>{e.target.src="../images/products/Organic_Product.jpg";}}
       />
@@ -326,6 +343,7 @@ function ProductFormModal({product, onClose, onSaved}){
 function ProductsManager(){
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isLive, setIsLive] = useState(false); // true = real Firestore docs, false = DEFAULT_PRODUCTS fallback
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
   const [modal, setModal] = useState(null); // null | "new" | productObj
@@ -335,11 +353,13 @@ function ProductsManager(){
 
   useEffect(()=>{
     const unsub = window.ProductsAPI.subscribeProducts(
-      (list)=>{ setProducts(list); setLoading(false); },
+      (list, live)=>{ setProducts(list); setIsLive(!!live); setLoading(false); },
       ()=>setLoading(false)
     );
     return unsub;
   },[]);
+
+  const canEdit = window.firebaseEnabled && isLive;
 
   const filtered = useMemo(()=>{
     let list = [...products];
@@ -407,22 +427,25 @@ function ProductsManager(){
       <div className="adm-topbar">
         <div>
           <h1 className="adm-title">Products</h1>
-          <p className="adm-sub">{products.length} product{products.length!==1?"s":""} {window.firebaseEnabled?"· live from Firestore":"· static fallback data"}</p>
+          <p className="adm-sub">{products.length} product{products.length!==1?"s":""} {isLive?"· live from Firestore":"· showing built-in catalog (not yet in Firestore)"}</p>
         </div>
         <div style={{display:"flex",gap:10}}>
-          {window.firebaseEnabled && (
+          {window.firebaseEnabled && !isLive && (
             <button className="adm-btn adm-btn-outline" onClick={handleSeed} disabled={seeding}>
               {seeding?<><span className="adm-spinner"/>Importing…</>:<><i className="fa-solid fa-cloud-arrow-up"/>Import Original Catalog</>}
             </button>
           )}
-          <button className="adm-btn adm-btn-green" onClick={()=>setModal("new")} disabled={!window.firebaseEnabled}>
+          <button className="adm-btn adm-btn-green" onClick={()=>setModal("new")} disabled={!canEdit}>
             <i className="fa-solid fa-plus"/> Add Product
           </button>
         </div>
       </div>
 
       {!window.firebaseEnabled && (
-        <div className="adm-banner warn"><i className="fa-solid fa-triangle-exclamation"/> Firebase isn't configured — showing read-only static catalog. See SETUP_GUIDE.md to enable editing.</div>
+        <div className="adm-banner warn"><i className="fa-solid fa-triangle-exclamation"/> Firebase isn't configured — showing read-only built-in catalog. See SETUP_GUIDE.md to enable editing.</div>
+      )}
+      {window.firebaseEnabled && !isLive && !loading && (
+        <div className="adm-banner warn"><i className="fa-solid fa-triangle-exclamation"/> Firestore has no products yet (or couldn't be reached), so you're viewing the built-in catalog read-only. Click <strong>"Import Original Catalog"</strong> above to start adding, editing, and reordering.</div>
       )}
       {banner && (
         <div className={`adm-banner ${banner.type}`} onClick={()=>setBanner(null)} style={{cursor:"pointer"}}>
@@ -458,7 +481,7 @@ function ProductsManager(){
               <tbody>
                 {filtered.map((p,idx)=>(
                   <tr key={p.id}>
-                    <td><img className="adm-thumb" src={p.image} alt="" onError={e=>{e.target.src="../images/products/Organic_Product.jpg";}}/></td>
+                    <td><img className="adm-thumb" src={toAdminSrc(p.image)} alt="" onError={e=>{e.target.src="../images/products/Organic_Product.jpg";}}/></td>
                     <td><div className="adm-pname">{p.name}</div><div className="adm-pname-en">{p.nameEn}</div></td>
                     <td>{p.category}</td>
                     <td>{p.quantity}</td>
@@ -466,9 +489,9 @@ function ProductsManager(){
                     <td>
                       <button
                         className={`adm-badge ${p.available!==false?"ok":"no"}`}
-                        style={{border:"none",cursor:window.firebaseEnabled?"pointer":"default"}}
-                        onClick={()=>window.firebaseEnabled && handleToggleAvailable(p)}
-                        disabled={busyId===p.id || !window.firebaseEnabled}
+                        style={{border:"none",cursor:canEdit?"pointer":"default"}}
+                        onClick={()=>canEdit && handleToggleAvailable(p)}
+                        disabled={busyId===p.id || !canEdit}
                       >
                         <i className={`fa-solid ${p.available!==false?"fa-check":"fa-xmark"}`}/>
                         {p.available!==false?"Available":"Out of Stock"}
@@ -476,14 +499,14 @@ function ProductsManager(){
                     </td>
                     <td>
                       <div style={{display:"flex",gap:4}}>
-                        <button className="adm-icon-btn" disabled={idx===0||!window.firebaseEnabled} onClick={()=>move(idx,-1)} title="Move up"><i className="fa-solid fa-arrow-up"/></button>
-                        <button className="adm-icon-btn" disabled={idx===filtered.length-1||!window.firebaseEnabled} onClick={()=>move(idx,1)} title="Move down"><i className="fa-solid fa-arrow-down"/></button>
+                        <button className="adm-icon-btn" disabled={idx===0||!canEdit} onClick={()=>move(idx,-1)} title="Move up"><i className="fa-solid fa-arrow-up"/></button>
+                        <button className="adm-icon-btn" disabled={idx===filtered.length-1||!canEdit} onClick={()=>move(idx,1)} title="Move down"><i className="fa-solid fa-arrow-down"/></button>
                       </div>
                     </td>
                     <td>
                       <div className="adm-row-actions">
-                        <button className="adm-icon-btn" disabled={!window.firebaseEnabled} onClick={()=>setModal(p)} title="Edit"><i className="fa-solid fa-pen"/></button>
-                        <button className="adm-icon-btn danger" disabled={!window.firebaseEnabled||busyId===p.id} onClick={()=>handleDelete(p)} title="Delete"><i className="fa-solid fa-trash"/></button>
+                        <button className="adm-icon-btn" disabled={!canEdit} onClick={()=>setModal(p)} title="Edit"><i className="fa-solid fa-pen"/></button>
+                        <button className="adm-icon-btn danger" disabled={!canEdit||busyId===p.id} onClick={()=>handleDelete(p)} title="Delete"><i className="fa-solid fa-trash"/></button>
                       </div>
                     </td>
                   </tr>

@@ -31,11 +31,11 @@
    ════════════════════════════════════════════════════════════════ */
 
 const firebaseConfig = {
-  apiKey:            "AIzaSyCm7vNO4VUU8WW8Y-p9B-ro1iV8iLoaDMk",
-  authDomain:         "organic-farm-71d77.firebaseapp.com",
-  projectId:          "organic-farm-71d77",
-  messagingSenderId:  "713974868176",
-  appId:              "1:713974868176:web:ffd33d3492a66bba2896d5",
+  apiKey:            "YOUR_API_KEY",
+  authDomain:         "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId:          "YOUR_PROJECT_ID",
+  messagingSenderId:  "YOUR_SENDER_ID",
+  appId:              "YOUR_APP_ID",
 };
 
 /* Detect whether the placeholders above have been replaced.
