@@ -428,7 +428,7 @@ function QtyModal({product, onConfirm, onClose}){
 
   const [unit,       setUnit]       = React.useState("g");
   const [selG,       setSelG]       = React.useState(baseGrams);
-  const [custom,     setCustom]     = React.useState(String(baseGrams));
+  const [custom,     setCustom]     = React.useState("");
   const [activeChip, setActiveChip] = React.useState(baseGrams);
   const [closing,    setClosing]    = React.useState(false);
 
@@ -592,49 +592,62 @@ function QtyModal({product, onConfirm, onClose}){
    ─ Click "Add To Cart" → open QtyModal as fixed overlay
    ─ Product card remains fully visible in background
    ════════════════════════════════════════════════════════ */
-function ProductCard({product, onOpenModal}){
+function ProductCard({product, onAdd}){
+  const [modalOpen, setModalOpen] = React.useState(false);
   const [justAdded, setJustAdded] = React.useState(false);
-  const available = product.available !== false;
+  const available = product.available !== false; // default true for legacy/static data
 
-  /* Called by the shared modal in ProductsSection after user confirms */
-  product._notifyAdded = React.useCallback(() => {
+  const handleConfirm = (qtyData) => {
+    onAdd(product, qtyData);
     setJustAdded(true);
     setTimeout(()=>setJustAdded(false), 1800);
-  }, []);
+  };
 
   return(
-    <div className="product-card" style={available?{}:{opacity:.65}}>
-      <div className="p-img" style={{position:"relative"}}>
-        <img
-          src={product.image}
-          alt={product.name}
-          loading="lazy"
-          onError={e=>{e.target.src="images/products/Organic_Product.jpg";}}
-        />
-        {!available&&(
-          <div style={{position:"absolute",top:"8px",left:"8px",background:"#D64545",color:"#fff",fontSize:".68rem",fontWeight:700,padding:"3px 9px",borderRadius:"8px"}}>
-            Out of Stock
-          </div>
-        )}
-      </div>
-      <div className="p-body">
-        <div className="p-name">{product.name}</div>
-        <div className="p-name-hi">{product.nameEn}</div>
-        <div className="p-price-main">
-          ₹{product.price}
-          <span className="p-price-unit">/ {product.quantity}</span>
+    <>
+      {/* ── Compact product card — always visible ── */}
+      <div className="product-card" style={available?{}:{opacity:.65}}>
+        <div className="p-img" style={{position:"relative"}}>
+          <img
+            src={product.image}
+            alt={product.name}
+            loading="lazy"
+            onError={e=>{e.target.src="images/products/Organic_Product.jpg";}}
+          />
+          {!available&&(
+            <div style={{position:"absolute",top:"8px",left:"8px",background:"#D64545",color:"#fff",fontSize:".68rem",fontWeight:700,padding:"3px 9px",borderRadius:"8px"}}>
+              Out of Stock
+            </div>
+          )}
         </div>
-        <button
-          className="add-btn"
-          disabled={!available}
-          style={!available?{opacity:.55,cursor:"not-allowed"}:justAdded?{background:"linear-gradient(135deg,#1a7a4a,#27ae60)"}:{}}
-          onClick={()=>available&&onOpenModal(product)}
-        >
-          <i className={`fa-solid ${justAdded?"fa-check":"fa-cart-plus"}`}/>
-          {!available?"Out of Stock":justAdded?"Added!":"Select Product"}
-        </button>
+        <div className="p-body">
+          <div className="p-name">{product.name}</div>
+          <div className="p-name-hi">{product.nameEn}</div>
+          <div className="p-price-main">
+            ₹{product.price}
+            <span className="p-price-unit">/ {product.quantity}</span>
+          </div>
+          <button
+            className="add-btn"
+            disabled={!available}
+            style={!available?{opacity:.55,cursor:"not-allowed"}:justAdded?{background:"linear-gradient(135deg,#1a7a4a,#27ae60)"}:{}}
+            onClick={()=>available&&setModalOpen(true)}
+          >
+            <i className={`fa-solid ${justAdded?"fa-check":"fa-cart-plus"}`}/>
+            {!available?"Out of Stock":justAdded?"Added!":"Select Product"}
+          </button>
+        </div>
       </div>
-    </div>
+
+      {/* ── Qty Modal — portal-style, outside card DOM flow ── */}
+      {modalOpen && available && (
+        <QtyModal
+          product={product}
+          onConfirm={handleConfirm}
+          onClose={()=>setModalOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -662,20 +675,6 @@ const CATEGORY_HEADING_COLORS = {
 };
 
 function ProductsSection({onAdd,cat,setCat}){
-  const [modalProduct, setModalProduct] = React.useState(null);
-
-  const handleOpenModal = React.useCallback((product) => {
-    setModalProduct(product);
-  }, []);
-
-  const handleModalConfirm = (qtyData) => {
-    if(!modalProduct) return;
-    onAdd(modalProduct, qtyData);
-    if(modalProduct._notifyAdded) modalProduct._notifyAdded();
-    setModalProduct(null);
-  };
-
-  const handleModalClose = () => setModalProduct(null);
   const [search, setSearch]= React.useState("");
   const [products, setProducts] = React.useState(window.DEFAULT_PRODUCTS||[]);
   const [loading, setLoading] = React.useState(true);
@@ -838,7 +837,7 @@ function ProductsSection({onAdd,cat,setCat}){
                   <div className="prod-scroll-inner" ref={innerRef}>
                     {row.map(p=>(
                       <div className="prod-scroll-item" key={p.id}>
-                        <ProductCard product={p} onOpenModal={handleOpenModal}/>
+                        <ProductCard product={p} onAdd={onAdd}/>
                       </div>
                     ))}
                   </div>
@@ -890,14 +889,6 @@ function ProductsSection({onAdd,cat,setCat}){
           })()}
         </div>
       </div>
-      {/* ── Single shared QtyModal for all product cards ── */}
-      {modalProduct && (
-        <QtyModal
-          product={modalProduct}
-          onConfirm={handleModalConfirm}
-          onClose={handleModalClose}
-        />
-      )}
     </section>
   );
 }

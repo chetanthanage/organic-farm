@@ -401,15 +401,102 @@ body{font-family:'Poppins',sans-serif;background:#f5f7f2;color:#1a3a2a;overflow-
 /* ── PRODUCT SECTION ── */
 .products-section{padding:0 0 72px;}
 
-/* ── PRODUCT GRID: 4-col desktop, 3-col tablet, 3-col mobile ── */
+/* ── PRODUCT GRID: outer wrapper, stacks rows vertically ── */
 .product-grid{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
+  display:flex;
+  flex-direction:column;
   gap:12px;
 }
-@media(max-width:1100px){.product-grid{grid-template-columns:repeat(3,1fr);}}
-@media(max-width:600px){.product-grid{grid-template-columns:repeat(3,1fr);gap:8px;}}
-@media(max-width:380px){.product-grid{grid-template-columns:repeat(2,1fr);gap:7px;}}
+
+/* ── CATEGORY GROUP: wraps one category's rows when viewing "All" ── */
+.cat-group{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.cat-group-title{
+  font-size:1.25rem;
+  font-weight:800;
+  margin:0;
+  padding-left:10px;
+  border-left:4px solid #27ae60;
+}
+
+/* ── SCROLL ROW: one horizontal scrollable lane ── */
+.prod-scroll-row{
+  position:relative;
+}
+
+/* ── ARROW BUTTONS: circle glass · 36px · chevron · fill sweep on hover ── */
+.prod-scroll-arrow{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.55);
+  border:1.5px solid rgba(45,106,79,.22);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:10;
+  box-shadow:0 2px 10px rgba(0,0,0,.10);
+  color:var(--green-deep);
+  font-size:.82rem;
+  padding:0;
+  opacity:0;
+  pointer-events:none;
+  /* fill sweep: background + border + color all transition together */
+  transition:opacity .22s, background .22s, border-color .22s, color .22s, box-shadow .22s, transform .15s;
+}
+.prod-scroll-arrow.visible{
+  opacity:1;
+  pointer-events:auto;
+}
+/* fill sweep: glass → solid green */
+.prod-scroll-arrow:hover{
+  background:var(--green-deep);
+  border-color:var(--green-deep);
+  color:#fff;
+  box-shadow:0 4px 16px rgba(27,67,50,.30);
+}
+.prod-scroll-arrow:active{transform:translateY(-50%) scale(.92);}
+.prod-scroll-arrow-l{left:6px;}
+.prod-scroll-arrow-r{right:6px;}
+
+/* on mobile: smaller arrows, still floating over the row */
+@media(max-width:600px){
+  .prod-scroll-arrow{
+    width:26px;height:26px;
+    font-size:.68rem;
+    left:auto;right:auto;
+    box-shadow:0 1px 6px rgba(0,0,0,.12);
+  }
+  .prod-scroll-arrow-l{left:3px;}
+  .prod-scroll-arrow-r{right:3px;}
+}
+
+/* fade-out edge hint + scroll container */
+.prod-scroll-inner{
+  display:flex;
+  flex-direction:row;
+  gap:12px;
+  overflow-x:auto;
+  overflow-y:visible;
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  padding:4px 8px 10px;
+  -webkit-mask-image:linear-gradient(to right,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%);
+  mask-image:linear-gradient(to right,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%);
+}
+.prod-scroll-inner::-webkit-scrollbar{display:none;}
+
+/* ── SCROLL ITEM: each card slot has a fixed width ── */
+.prod-scroll-item{
+  flex:0 0 auto;
+  width:170px;
+}
+@media(max-width:1100px){.prod-scroll-item{width:155px;}}
+@media(max-width:600px){.prod-scroll-item{width:140px;}}
+@media(max-width:380px){.prod-scroll-item{width:130px;}}
 
 /* ── PRODUCT CARD — compact mobile-first ── */
 /* ── PRODUCT CARD (compact, no selector inline) ── */
