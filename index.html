@@ -991,12 +991,16 @@ function ProductsSection({onAdd,cat,setCat,catTabs}){
                single selected category, skip headings (redundant with
                the active-category chip already shown above). */
             if(cat === "All"){
-              const order = [];
               const byCat = {};
               filtered.forEach(p=>{
-                if(!byCat[p.category]){ byCat[p.category]=[]; order.push(p.category); }
+                if(!byCat[p.category]) byCat[p.category]=[];
                 byCat[p.category].push(p);
               });
+              /* Follow the tab order set in the admin Categories panel,
+                 then append any categories not in tabs (safety net). */
+              const tabOrder = tabs.filter(t=>t.val!=="All").map(t=>t.val);
+              const remaining = Object.keys(byCat).filter(k=>!tabOrder.includes(k));
+              const order = [...tabOrder, ...remaining].filter(k=>byCat[k]);
               return order.map(catName=>{
                 const rows = buildRows(byCat[catName]);
                 return (
