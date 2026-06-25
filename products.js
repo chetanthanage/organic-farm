@@ -706,8 +706,99 @@ const ProductsAPI = (function(){
   };
 })();
 
+/* ════════════════════════════════════════════════════════════════
+   CATEGORIES API — persist category order in Firestore
+   (settings collection, doc "categoryOrder").
+   Falls back gracefully when Firebase is not configured.
+   The "All" category is always pinned first and never moved.
+   ════════════════════════════════════════════════════════════════ */
+const CategoriesAPI = (function(){
+  const SETTINGS_COLLECTION = "settings";
+  const ORDER_DOC           = "categoryOrder";
+
+  /* Return the default order (ids only, All first) */
+  function defaultOrder(){
+    return PRODUCT_CATEGORIES.map(c => c.id);
+  }
+
+  /* Apply a saved id-order array to the PRODUCT_CATEGORIES list.
+     Unknown ids are ignored; categories missing from the saved list
+     are appended at the end so new categories never disappear. */
+  function applyOrder(savedIds){
+    const map = new Map(PRODUCT_CATEGORIES.map(c => [c.id, c]));
+    const ordered = [];
+    // Always put All first
+    if(map.has("All")) ordered.push(map.get("All"));
+    for(const id of savedIds){
+      if(id !== "All" && map.has(id)) ordered.push(map.get(id));
+    }
+    // Append any categories not present in savedIds
+    for(const c of PRODUCT_CATEGORIES){
+      if(c.id !== "All" && !savedIds.includes(c.id)) ordered.push(c);
+    }
+    return ordered;
+  }
+
+  /* Load saved order from Firestore (or return default if not saved) */
+  async function getCategories(){
+    if(!window.firebaseEnabled || !window.firebaseDB){
+      return [...PRODUCT_CATEGORIES];
+    }
+    try{
+      const snap = await window.firebaseDB
+        .collection(SETTINGS_COLLECTION).doc(ORDER_DOC).get();
+      if(snap.exists && Array.isArray(snap.data().order)){
+        return applyOrder(snap.data().order);
+      }
+    }catch(e){ /* ignore — return default */ }
+    return [...PRODUCT_CATEGORIES];
+  }
+
+  /* Realtime subscription — calls cb(categories[]) immediately and
+     whenever the order doc changes. Returns unsubscribe fn. */
+  function subscribeCategories(cb){
+    if(!window.firebaseEnabled || !window.firebaseDB){
+      cb([...PRODUCT_CATEGORIES]);
+      return ()=>{};
+    }
+    return window.firebaseDB
+      .collection(SETTINGS_COLLECTION).doc(ORDER_DOC)
+      .onSnapshot(
+        snap => {
+          if(snap.exists && Array.isArray(snap.data().order)){
+            cb(applyOrder(snap.data().order));
+          } else {
+            cb([...PRODUCT_CATEGORIES]);
+          }
+        },
+        () => cb([...PRODUCT_CATEGORIES])
+      );
+  }
+
+  /* Save a new order array (of category id strings) to Firestore */
+  async function reorderCategories(orderedIds){
+    if(!window.firebaseEnabled || !window.firebaseDB){
+      throw new Error("Firebase is not configured — cannot save category order.");
+    }
+    if(!window.firebaseAuth || !window.firebaseAuth.currentUser){
+      throw new Error("Not authenticated — admin login required.");
+    }
+    await window.firebaseDB
+      .collection(SETTINGS_COLLECTION).doc(ORDER_DOC)
+      .set({ order: orderedIds, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    // Also update the global PRODUCT_CATEGORIES so the storefront
+    // picks up the new order within the same page load.
+    const reordered = applyOrder(orderedIds);
+    window.PRODUCT_CATEGORIES.length = 0;
+    reordered.forEach(c => window.PRODUCT_CATEGORIES.push(c));
+  }
+
+  return { getCategories, subscribeCategories, reorderCategories, defaultOrder };
+})();
+
 window.DEFAULT_PRODUCTS         = DEFAULT_PRODUCTS;
 window.PRODUCT_CATEGORIES        = PRODUCT_CATEGORIES;
 window.PRODUCT_UNITS             = PRODUCT_UNITS;
 window.PRODUCT_IMAGE_MANIFEST    = PRODUCT_IMAGE_MANIFEST;
 window.ProductsAPI               = ProductsAPI;
+window.CategoriesAPI             = CategoriesAPI;

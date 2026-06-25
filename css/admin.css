@@ -124,3 +124,11 @@ a{color:inherit;}
   .adm-main{margin-left:0;padding:20px 16px 90px;}
   .adm-fg-row{grid-template-columns:1fr;}
 }
+
+/* ── Category Manager ── */
+.adm-cat-pinned-row td{background:var(--cream);opacity:.72;}
+.adm-cat-pin-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:var(--gold-light);color:#7a5a10;border-radius:20px;font-size:.7rem;font-weight:700;white-space:nowrap;}
+.adm-cat-move-btns{display:inline-flex;gap:5px;justify-content:center;}
+.adm-cat-move-btn{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--cream-dark);background:#fff;color:var(--green-deep);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:.78rem;transition:background .15s,border-color .15s;}
+.adm-cat-move-btn:hover:not(:disabled){background:var(--green);border-color:var(--green);color:#fff;}
+.adm-cat-move-btn:disabled{opacity:.3;cursor:not-allowed;}

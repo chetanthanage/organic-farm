@@ -123,10 +123,8 @@ function LoginScreen(){
 
 /* ════════════════════════════════════════════════════
    SIDEBAR
-   (Single section now — Products only. Gallery has no
-   admin UI since it's fully static.)
    ════════════════════════════════════════════════════ */
-function Sidebar({user, onLogout}){
+function Sidebar({user, onLogout, section, onSection}){
   return(
     <aside className="adm-sidebar">
       <div className="adm-sidebar-logo">
@@ -138,8 +136,11 @@ function Sidebar({user, onLogout}){
         </div>
       </div>
       <nav className="adm-nav">
-        <button className="adm-nav-btn active" disabled>
+        <button className={`adm-nav-btn${section==="products"?" active":""}`} onClick={()=>onSection("products")}>
           <i className="fa-solid fa-carrot"/> Products
+        </button>
+        <button className={`adm-nav-btn${section==="categories"?" active":""}`} onClick={()=>onSection("categories")}>
+          <i className="fa-solid fa-layer-group"/> Categories
         </button>
         <a className="adm-nav-btn" href="/" target="_blank" rel="noreferrer">
           <i className="fa-solid fa-arrow-up-right-from-square"/> View Site
@@ -572,17 +573,192 @@ function ProductsManager(){
 }
 
 /* ════════════════════════════════════════════════════
+   CATEGORIES MANAGER
+   Shows all categories (except "All" which is pinned
+   first) with Up / Down arrow buttons to reorder them.
+   Order is saved to Firestore (settings/categoryOrder).
+   ════════════════════════════════════════════════════ */
+function CategoriesManager(){
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
+  const [banner, setBanner]         = useState(null);
+
+  /* Subscribe to live category order */
+  useEffect(()=>{
+    const unsub = window.CategoriesAPI.subscribeCategories(cats=>{
+      setCategories(cats);
+      setLoading(false);
+    });
+    return unsub;
+  },[]);
+
+  /* Move a category up or down by one position (skips "All" pin) */
+  const move = async (idx, dir)=>{
+    /* idx is the index in the full categories array (All is at 0).
+       The moveable range starts at 1. */
+    const newCats = [...categories];
+    const targetIdx = idx + dir;
+    /* Guard: never move "All", never go out of bounds */
+    if(idx <= 1 && dir === -1) return; // "All" at 0, first moveable at 1
+    if(targetIdx <= 0) return;
+    if(targetIdx >= newCats.length) return;
+    [newCats[idx], newCats[targetIdx]] = [newCats[targetIdx], newCats[idx]];
+    /* Optimistic UI update */
+    setCategories(newCats);
+    setSaving(true);
+    try{
+      await window.CategoriesAPI.reorderCategories(newCats.map(c=>c.id));
+      setBanner({type:"success", text:"Category order saved."});
+      setTimeout(()=>setBanner(null), 2500);
+    }catch(err){
+      /* Revert on failure */
+      setCategories([...categories]);
+      setBanner({type:"error", text: err.message});
+    }finally{
+      setSaving(false);
+    }
+  };
+
+  /* Reset to default order */
+  const handleReset = async ()=>{
+    if(!confirm("Reset categories to the default order?")) return;
+    setSaving(true);
+    try{
+      const defaultIds = window.CategoriesAPI.defaultOrder();
+      await window.CategoriesAPI.reorderCategories(defaultIds);
+      setBanner({type:"success", text:"Category order reset to default."});
+      setTimeout(()=>setBanner(null), 2500);
+    }catch(err){
+      setBanner({type:"error", text: err.message});
+    }finally{
+      setSaving(false);
+    }
+  };
+
+  /* Count products per category */
+  const productCounts = useMemo(()=>{
+    const counts = {};
+    (window.DEFAULT_PRODUCTS||[]).forEach(p=>{
+      counts[p.category] = (counts[p.category]||0)+1;
+    });
+    return counts;
+  },[]);
+
+  return(
+    <div>
+      <div className="adm-topbar">
+        <div>
+          <h1 className="adm-title">Categories</h1>
+          <p className="adm-sub">
+            {categories.length-1} categories &nbsp;·&nbsp;
+            Drag or use ↑ ↓ to reorder &nbsp;·&nbsp;
+            <em style={{color:"var(--text-muted)",fontStyle:"normal"}}>"All" is always pinned first</em>
+          </p>
+        </div>
+        <button className="adm-btn adm-btn-outline" onClick={handleReset} disabled={saving||!window.firebaseEnabled}>
+          <i className="fa-solid fa-arrow-rotate-left"/> Reset Order
+        </button>
+      </div>
+
+      {!window.firebaseEnabled && (
+        <div className="adm-banner warn"><i className="fa-solid fa-triangle-exclamation"/> Firebase isn't configured — category order cannot be saved. Configure Firebase to enable editing.</div>
+      )}
+      {banner && (
+        <div className={`adm-banner ${banner.type}`} onClick={()=>setBanner(null)} style={{cursor:"pointer"}}>
+          <i className={`fa-solid ${banner.type==="success"?"fa-circle-check":"fa-circle-exclamation"}`}/> {banner.text} <span style={{marginLeft:"auto",opacity:.6}}>✕</span>
+        </div>
+      )}
+
+      <div className="adm-card">
+        {loading ? (
+          <div className="adm-empty">
+            <span className="adm-spinner" style={{borderTopColor:"var(--green)",borderColor:"rgba(45,106,79,.25)"}}/>
+            {" "}Loading categories…
+          </div>
+        ) : (
+          <div className="adm-table-wrap">
+            <table className="adm-table">
+              <thead>
+                <tr>
+                  <th style={{width:42}}>#</th>
+                  <th>Category</th>
+                  <th>ID</th>
+                  <th style={{width:80,textAlign:"center"}}>Products</th>
+                  <th style={{width:110,textAlign:"center"}}>Move</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((cat, idx)=>{
+                  const isPinned = cat.id === "All";
+                  const isFirst  = idx === 1; // first moveable
+                  const isLast   = idx === categories.length - 1;
+                  return(
+                    <tr key={cat.id} className={isPinned?"adm-cat-pinned-row":""}>
+                      <td style={{color:"var(--text-muted)",fontWeight:700,fontSize:".8rem"}}>{idx+1}</td>
+                      <td>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          {isPinned && (
+                            <span className="adm-cat-pin-badge"><i className="fa-solid fa-thumbtack"/> Pinned</span>
+                          )}
+                          <div>
+                            <div className="adm-pname" style={{fontSize:".88rem"}}>{cat.label}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{fontFamily:"monospace",fontSize:".78rem",color:"var(--text-muted)"}}>{cat.id}</td>
+                      <td style={{textAlign:"center"}}>
+                        {!isPinned && (
+                          <span className="adm-badge ok" style={{justifyContent:"center"}}>
+                            {productCounts[cat.id]||0}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{textAlign:"center"}}>
+                        {!isPinned && (
+                          <div className="adm-cat-move-btns">
+                            <button
+                              className="adm-cat-move-btn"
+                              title="Move up"
+                              disabled={isFirst || saving || !window.firebaseEnabled}
+                              onClick={()=>move(idx,-1)}
+                            >
+                              <i className="fa-solid fa-chevron-up"/>
+                            </button>
+                            <button
+                              className="adm-cat-move-btn"
+                              title="Move down"
+                              disabled={isLast || saving || !window.firebaseEnabled}
+                              onClick={()=>move(idx,1)}
+                            >
+                              <i className="fa-solid fa-chevron-down"/>
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════
    DASHBOARD SHELL (after login)
-   Only one section now — Products. (Gallery is fully
-   static and has no admin UI — see GallerySection in
-   index.html.)
    ════════════════════════════════════════════════════ */
 function Dashboard({user, onLogout}){
+  const [section, setSection] = useState("products");
   return(
     <div className="adm-shell">
-      <Sidebar user={user} onLogout={onLogout}/>
+      <Sidebar user={user} onLogout={onLogout} section={section} onSection={setSection}/>
       <main className="adm-main">
-        <ProductsManager/>
+        {section==="products"  && <ProductsManager/>}
+        {section==="categories"&& <CategoriesManager/>}
       </main>
     </div>
   );
