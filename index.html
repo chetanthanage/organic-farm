@@ -849,8 +849,8 @@ function ProductsSection({onAdd,cat,setCat,catTabs}){
               {(()=>{
                 const allCat = tabs.find(c=>c.val==="All");
                 return allCat
-                  ? <><i className={allCat.icon}/> Our Products <span style={{fontWeight:400,opacity:.75}}>/ आमची उत्पादने</span></>
-                  : "Our Products / आमची उत्पादने";
+                  ? <><i className={allCat.icon}/> Our Products <span style={{fontWeight:400,opacity:.75}}> </span></>
+                  : "Our Products";
               })()}
             </div>
             <h2 className="sec-title">Fresh Organic Products</h2>
