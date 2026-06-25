@@ -40,7 +40,14 @@ function NotConfiguredScreen(){
   return(
     <div className="adm-login-wrap">
       <div className="adm-login-card" style={{maxWidth:460}}>
-        <div className="adm-login-logo"><div className="ico"><i className="fa-solid fa-triangle-exclamation"/></div>Setup Required</div>
+        <div className="adm-login-logo">
+          <div className="adm-brand-badge adm-brand-badge--warn">
+            <span className="adm-brand-name">Sudarshan</span>
+            <span className="adm-brand-organic">Organic</span>
+            <span className="adm-brand-rule"/>
+            <span className="adm-brand-sub">Farm &amp; Store</span>
+          </div>
+        </div>
         <p className="adm-login-sub" style={{marginBottom:0}}>
           Firebase hasn't been configured yet. Open <code>firebase-config.js</code> and
           replace the placeholder values with your Firebase project's credentials,
@@ -83,7 +90,14 @@ function LoginScreen(){
   return(
     <div className="adm-login-wrap">
       <form className="adm-login-card" onSubmit={handleSubmit}>
-        <div className="adm-login-logo"><div className="ico"><i className="fa-solid fa-leaf"/></div>Organic Farm</div>
+        <div className="adm-login-logo">
+          <div className="adm-brand-badge">
+            <span className="adm-brand-name">Sudarshan</span>
+            <span className="adm-brand-organic">Organic</span>
+            <span className="adm-brand-rule"/>
+            <span className="adm-brand-sub">Farm &amp; Store</span>
+          </div>
+        </div>
         <p className="adm-login-sub">Admin Panel — authorized access only</p>
 
         {error && <div className="adm-err-box"><i className="fa-solid fa-circle-exclamation" style={{marginRight:6}}/>{error}</div>}
@@ -115,7 +129,14 @@ function LoginScreen(){
 function Sidebar({user, onLogout}){
   return(
     <aside className="adm-sidebar">
-      <div className="adm-sidebar-logo"><i className="fa-solid fa-leaf" style={{color:"var(--gold-light)"}}/>Organic Farm</div>
+      <div className="adm-sidebar-logo">
+        <div className="adm-brand-badge adm-brand-badge--sidebar">
+          <span className="adm-brand-name adm-brand-name--sidebar">Sudarshan</span>
+          <span className="adm-brand-organic adm-brand-organic--sidebar">Organic</span>
+          <span className="adm-brand-rule"/>
+          <span className="adm-brand-sub adm-brand-sub--sidebar">Farm &amp; Store</span>
+        </div>
+      </div>
       <nav className="adm-nav">
         <button className="adm-nav-btn active" disabled>
           <i className="fa-solid fa-carrot"/> Products
@@ -379,19 +400,35 @@ function ProductsManager(){
     }
   };
 
-  const move = async (idx, dir)=>{
-    const target = idx+dir;
-    if(target<0 || target>=filtered.length) return;
-    // Reorder within the *full* list (products), based on filtered display order
-    const fullOrder = products.map(p=>p.id);
-    const a = filtered[idx].id, b = filtered[target].id;
-    const ia = fullOrder.indexOf(a), ib = fullOrder.indexOf(b);
-    [fullOrder[ia], fullOrder[ib]] = [fullOrder[ib], fullOrder[ia]];
+  const dragIdx = useRef(null);
+  const [dragOver, setDragOver] = useState(null);
+
+  const reorderTo = async (fromIdx, toIdx)=>{
+    if(fromIdx === toIdx) return;
+    const newFiltered = [...filtered];
+    const [moved] = newFiltered.splice(fromIdx, 1);
+    newFiltered.splice(toIdx, 0, moved);
+    const filteredIds = new Set(filtered.map(p=>p.id));
+    const fullOrder = [...products.map(p=>p.id)];
+    const slots = fullOrder.map((id,i)=>filteredIds.has(id)?i:null).filter(i=>i!==null);
+    slots.forEach((slot,i)=>{ fullOrder[slot] = newFiltered[i].id; });
     try{
       await window.ProductsAPI.reorderProducts(fullOrder);
     }catch(err){
       setBanner({type:"error", text: err.message});
     }
+  };
+
+  const handleDragStart = (idx)=>{ dragIdx.current = idx; };
+  const handleDragOver  = (e, idx)=>{ e.preventDefault(); setDragOver(idx); };
+  const handleDrop      = async (idx)=>{ setDragOver(null); await reorderTo(dragIdx.current, idx); dragIdx.current = null; };
+  const handleDragEnd   = ()=>{ setDragOver(null); dragIdx.current = null; };
+
+  const handleMoveToPos = async (idx, rawVal)=>{
+    const pos = parseInt(rawVal, 10);
+    if(isNaN(pos)) return;
+    const toIdx = Math.max(0, Math.min(filtered.length-1, pos-1));
+    await reorderTo(idx, toIdx);
   };
 
   const handleSeed = async ()=>{
@@ -457,13 +494,29 @@ function ProductsManager(){
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th></th><th>Product</th><th>Category</th><th>Qty</th><th>Price</th><th>Status</th><th>Order</th><th></th>
+                  <th title="Drag to reorder"></th><th>Product</th><th>Category</th><th>Qty</th><th>Price</th><th>Status</th><th title="Type a position number to jump">Pos</th><th></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((p,idx)=>(
-                  <tr key={p.id}>
-                    <td><img className="adm-thumb" src={p.image} alt="" onError={e=>{e.target.src="../images/products/Organic_Product.jpg";}}/></td>
+                  <tr key={p.id}
+                    draggable={window.firebaseEnabled}
+                    onDragStart={()=>handleDragStart(idx)}
+                    onDragOver={e=>handleDragOver(e,idx)}
+                    onDrop={()=>handleDrop(idx)}
+                    onDragEnd={handleDragEnd}
+                    style={{
+                      cursor:window.firebaseEnabled?"grab":"default",
+                      background:dragOver===idx?"var(--cream-dark)":undefined,
+                      borderTop:dragOver===idx?"2px solid var(--green)":undefined,
+                      opacity:dragIdx.current===idx?.4:1,
+                      transition:"background .15s",
+                    }}
+                  >
+                    <td style={{paddingRight:0}}>
+                      {window.firebaseEnabled && <i className="fa-solid fa-grip-vertical" style={{color:"var(--text-muted)",fontSize:".8rem",cursor:"grab"}}/>}
+                      <img className="adm-thumb" src={p.image} alt="" onError={e=>{e.target.src="../images/products/Organic_Product.jpg";}} style={{marginLeft:8}}/>
+                    </td>
                     <td><div className="adm-pname">{p.name}</div><div className="adm-pname-en">{p.nameEn}</div></td>
                     <td>{p.category}</td>
                     <td>{p.quantity}</td>
@@ -480,10 +533,18 @@ function ProductsManager(){
                       </button>
                     </td>
                     <td>
-                      <div style={{display:"flex",gap:4}}>
-                        <button className="adm-icon-btn" disabled={idx===0||!window.firebaseEnabled} onClick={()=>move(idx,-1)} title="Move up"><i className="fa-solid fa-arrow-up"/></button>
-                        <button className="adm-icon-btn" disabled={idx===filtered.length-1||!window.firebaseEnabled} onClick={()=>move(idx,1)} title="Move down"><i className="fa-solid fa-arrow-down"/></button>
-                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        max={filtered.length}
+                        defaultValue={idx+1}
+                        key={`${p.id}-${idx}`}
+                        disabled={!window.firebaseEnabled}
+                        onBlur={e=>handleMoveToPos(idx, e.target.value)}
+                        onKeyDown={e=>{ if(e.key==="Enter"){ e.target.blur(); } }}
+                        style={{width:54,padding:"5px 7px",border:"1.5px solid var(--cream-dark)",borderRadius:8,fontFamily:"inherit",fontSize:".82rem",textAlign:"center"}}
+                        title="Type a position number and press Enter"
+                      />
                     </td>
                     <td>
                       <div className="adm-row-actions">

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Organic Farm | Fresh Organic Products - Nashik</title>
+<title>Sudarshan Organic Farm & Store | Fresh Organic Products - Nashik</title>
 <meta name="description" content="100% organic farm products - Dal, Grains, Vegetables, Fruits, Dairy, Spices. Order on WhatsApp. Located in Nashik, Maharashtra."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,800;1,500;1,600&display=swap" rel="stylesheet"/>
@@ -46,7 +46,7 @@
    share a single source of truth). The CAT_TABS array below (with icons
    and colors for the navbar) remains here as presentation-only data. */
 
-const ADMIN_WA = "917743917248";
+const ADMIN_WA = "919405606230";
 const MAP_DIRECTIONS = "https://maps.app.goo.gl/VJ8pLNnBW391obu6A";
 
 /* ════ CART UTILS ════ */
@@ -137,6 +137,13 @@ function Header({cart,page,setPage,cat,setCat}){
   const [scrolled, setScrolled] = React.useState(false);
   const [catBarOn, setCatBarOn] = React.useState(false);
   const scrollRef                = React.useRef(null);
+  const cartBtnRef               = React.useRef(null);
+
+  /* Expose cart button ref globally so fly-to-cart animation can find it */
+  React.useEffect(()=>{
+    window.__cartBtnRef = cartBtnRef;
+    return ()=>{ window.__cartBtnRef = null; };
+  }, []);
 
   /* Transparent on hero, white after scroll. Cart page: always white */
   React.useEffect(()=>{
@@ -200,8 +207,24 @@ function Header({cart,page,setPage,cat,setCat}){
         {/* ── Main navbar row ── */}
         <nav className="navbar container">
           <a className="logo" href="#" onClick={e=>{e.preventDefault();setPage("home");}}>
-            <div className="logo-icon"><i className="fa-solid fa-leaf"/></div>
-            Organic Farm
+            <span className="logo-icon">
+              <svg viewBox="0 0 64 64" aria-hidden="true">
+                <path d="M14 50C20 40 24 32 34 14" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity=".55"/>
+                <ellipse cx="33" cy="16" rx="7.5" ry="4.5" fill="currentColor" transform="rotate(35 33 16)"/>
+                <ellipse cx="27" cy="24" rx="7" ry="4" fill="currentColor" opacity=".85" transform="rotate(20 27 24)"/>
+                <ellipse cx="34" cy="29" rx="7.5" ry="4.2" fill="currentColor" transform="rotate(-25 34 29)"/>
+                <ellipse cx="25" cy="36" rx="7" ry="4" fill="currentColor" opacity=".85" transform="rotate(15 25 36)"/>
+                <ellipse cx="32" cy="41" rx="7.5" ry="4.2" fill="currentColor" transform="rotate(-30 32 41)"/>
+              </svg>
+            </span>
+            <span className="logo-text">
+              <span className="logo-name">Sudarshan</span>
+              <span className="logo-subline">
+                <span className="logo-organic">Organic</span>
+                <span className="logo-divider">|</span>
+                <span className="logo-sub">Farm &amp; Store</span>
+              </span>
+            </span>
           </a>
           <ul className="nav-links">
             {navLinks.map(l=>(
@@ -211,7 +234,7 @@ function Header({cart,page,setPage,cat,setCat}){
             ))}
           </ul>
           <div className="nav-icons">
-            <button className="cart-btn" onClick={()=>setPage("cart")} aria-label="Cart">
+            <button className="cart-btn" ref={cartBtnRef} onClick={()=>setPage("cart")} aria-label="Cart">
               <span className="cart-emoji" aria-hidden="true">🛒</span>
               <span className="cart-label">Cart</span>
               {cart.length>0&&<span className="cart-count">{cart.length}</span>}
@@ -307,7 +330,7 @@ function StatCard({value,suffix,label,delay}){
   );
 }
 
-function Hero({setPage}){
+function Hero({setPage, productCount}){
   const scrollToProducts = ()=>{
     const el = document.querySelector("#products");
     if(el) el.scrollIntoView({behavior:"smooth"});
@@ -334,12 +357,12 @@ function Hero({setPage}){
             <button className="btn-primary" onClick={scrollToProducts}>
               <i className="fa-solid fa-basket-shopping"/> Shop Now
             </button>
-            <a className="btn-glass" href={`https://wa.me/${ADMIN_WA}`} target="_blank" rel="noreferrer">
-              <i className="fa-brands fa-whatsapp"/> WhatsApp Order
+            <a className="btn-glass" href="#story" onClick={e=>{e.preventDefault();const el=document.querySelector("#story");if(el)el.scrollIntoView({behavior:"smooth"});}}>
+              <i className="fa-solid fa-leaf"/> About Us
             </a>
           </div>
           <div className="hero-stats">
-            <StatCard value={187} suffix="+" label="Products" delay="360ms"/>
+            <StatCard value={productCount} suffix="+" label="Products" delay="360ms"/>
             <StatCard value={500} suffix="+" label="Families" delay="420ms"/>
             <StatCard value={100} suffix="%" label="Organic" delay="480ms"/>
           </div>
@@ -592,9 +615,101 @@ function QtyModal({product, onConfirm, onClose}){
    ─ Click "Add To Cart" → open QtyModal as fixed overlay
    ─ Product card remains fully visible in background
    ════════════════════════════════════════════════════════ */
+/* ════ FLY-TO-CART ANIMATION ════ */
+function flyToCart(sourceEl) {
+  const cartRef = window.__cartBtnRef;
+  if (!cartRef || !cartRef.current || !sourceEl) return;
+
+  const imgEl = sourceEl.querySelector(".p-img img");
+  const from  = sourceEl.getBoundingClientRect();
+  const to    = cartRef.current.getBoundingClientRect();
+
+  const size = Math.min(from.width, 80);
+
+  /* Origin center coords */
+  const ox = from.left + from.width / 2;
+  const oy = from.top  + from.height / 2;
+
+  /* Delta from origin center to cart center */
+  const dx = (to.left + to.width / 2)  - ox;
+  const dy = (to.top  + to.height / 2) - oy;
+
+  /* Create flying image clone — centered on card */
+  const clone = document.createElement("div");
+  clone.className = "fly-dot";
+  clone.style.cssText = `
+    position:fixed;
+    left:${ox - size/2}px;
+    top:${oy - size/2}px;
+    width:${size}px;
+    height:${size}px;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 6px 20px rgba(0,0,0,.4);
+    z-index:99999;
+    pointer-events:none;
+    transform-origin:center;
+    will-change:transform,opacity;
+  `;
+
+  const img = document.createElement("img");
+  img.src = imgEl ? imgEl.src : "";
+  img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;";
+  clone.appendChild(img);
+  document.body.appendChild(clone);
+
+  /* Elastic snap keyframes:
+     0%   — start at card, normal scale
+     25%  — squash horizontally, stretch vertically, 30% toward cart
+     50%  — squash vertically, stretch horizontally, 60% toward cart
+     100% — arrive at cart, shrink to nothing + fade */
+  clone.animate([
+    {
+      transform: `translate(0px, 0px) scale(1)`,
+      opacity: 1,
+      borderRadius: "10px",
+      offset: 0
+    },
+    {
+      transform: `translate(${dx*.3}px, ${dy*.3}px) scale(1.3, 0.7)`,
+      opacity: 1,
+      borderRadius: "14px",
+      offset: 0.25
+    },
+    {
+      transform: `translate(${dx*.6}px, ${dy*.6}px) scale(0.7, 1.3)`,
+      opacity: 1,
+      borderRadius: "14px",
+      offset: 0.5
+    },
+    {
+      transform: `translate(${dx}px, ${dy}px) scale(0.15)`,
+      opacity: 0,
+      borderRadius: "50%",
+      offset: 1
+    }
+  ], {
+    duration: 620,
+    easing: "cubic-bezier(.4,0,.2,1)",
+    fill: "forwards"
+  }).onfinish = () => {
+    clone.remove();
+    const btn = cartRef.current;
+    if(btn){
+      btn.classList.remove("cart-bounce");
+      void btn.offsetWidth;
+      btn.classList.add("cart-bounce");
+    }
+  };
+}
+
 function ProductCard({product, onOpenModal}){
   const [justAdded, setJustAdded] = React.useState(false);
   const available = product.available !== false;
+  const cardRef   = React.useRef(null);
+
+  /* Expose card DOM element so ProductsSection can trigger fly animation */
+  React.useEffect(()=>{ product._cardEl = cardRef.current; }, []);
 
   /* Called by the shared modal in ProductsSection after user confirms */
   product._notifyAdded = React.useCallback(() => {
@@ -603,7 +718,16 @@ function ProductCard({product, onOpenModal}){
   }, []);
 
   return(
-    <div className="product-card" style={available?{}:{opacity:.65}}>
+    <div
+      ref={cardRef}
+      className={"product-card" + (available?" card-clickable":"")}
+      style={available?{}:{opacity:.65}}
+      onClick={()=>available&&onOpenModal(product)}
+      role={available?"button":undefined}
+      tabIndex={available?0:undefined}
+      onKeyDown={available?(e=>{if(e.key==="Enter"||e.key===" ")onOpenModal(product);}):undefined}
+      aria-label={available?`Select ${product.nameEn}`:undefined}
+    >
       <div className="p-img" style={{position:"relative"}}>
         <img
           src={product.image}
@@ -611,9 +735,16 @@ function ProductCard({product, onOpenModal}){
           loading="lazy"
           onError={e=>{e.target.src="images/products/Organic_Product.jpg";}}
         />
+        {/* Out of Stock badge */}
         {!available&&(
           <div style={{position:"absolute",top:"8px",left:"8px",background:"#D64545",color:"#fff",fontSize:".68rem",fontWeight:700,padding:"3px 9px",borderRadius:"8px"}}>
             Out of Stock
+          </div>
+        )}
+        {/* Added! flash badge */}
+        {justAdded&&(
+          <div className="card-added-badge">
+            <i className="fa-solid fa-check"/> Added!
           </div>
         )}
       </div>
@@ -624,15 +755,6 @@ function ProductCard({product, onOpenModal}){
           ₹{product.price}
           <span className="p-price-unit">/ {product.quantity}</span>
         </div>
-        <button
-          className="add-btn"
-          disabled={!available}
-          style={!available?{opacity:.55,cursor:"not-allowed"}:justAdded?{background:"linear-gradient(135deg,#1a7a4a,#27ae60)"}:{}}
-          onClick={()=>available&&onOpenModal(product)}
-        >
-          <i className={`fa-solid ${justAdded?"fa-check":"fa-cart-plus"}`}/>
-          {!available?"Out of Stock":justAdded?"Added!":"Select Product"}
-        </button>
       </div>
     </div>
   );
@@ -672,6 +794,8 @@ function ProductsSection({onAdd,cat,setCat}){
     if(!modalProduct) return;
     onAdd(modalProduct, qtyData);
     if(modalProduct._notifyAdded) modalProduct._notifyAdded();
+    /* Fly animation: from product card image to cart button */
+    flyToCart(modalProduct._cardEl);
     setModalProduct(null);
   };
 
@@ -719,7 +843,14 @@ function ProductsSection({onAdd,cat,setCat}){
         {/* Section heading */}
         <div className="products-header">
           <div className="sec-header" style={{textAlign:"center"}}>
-            <div className="sec-tag">🛒 आमची उत्पादने</div>
+            <div className="sec-tag">
+              {(()=>{
+                const allCat = CAT_TABS.find(c=>c.val==="All");
+                return allCat
+                  ? <><i className={allCat.icon}/> Our Products <span style={{fontWeight:400,opacity:.75}}>/ आमची उत्पादने</span></>
+                  : "Our Products / आमची उत्पादने";
+              })()}
+            </div>
             <h2 className="sec-title">Fresh Organic Products</h2>
             <p className="sec-sub" style={{margin:"0 auto"}}>{products.length}+ products directly from our certified organic farm.</p>
           </div>
@@ -874,7 +1005,14 @@ function ProductsSection({onAdd,cat,setCat}){
                         color: CATEGORY_HEADING_COLORS[catName] || "#1a4d2e",
                         borderLeftColor: CATEGORY_HEADING_COLORS[catName] || "#27ae60",
                       }}
-                    >{catName}</h3>
+                    >
+                      {(()=>{
+                        const c = CAT_TABS.find(x=>x.val===catName);
+                        return c
+                          ? <><i className={c.icon} style={{marginRight:"7px",fontSize:".95em",opacity:.9}}/>{c.label}</>
+                          : catName;
+                      })()}
+                    </h3>
                     {rows.map((row, ri)=>(
                       <ScrollRow key={catName+"-"+ri} row={row} ri={ri}/>
                     ))}
@@ -903,17 +1041,7 @@ function ProductsSection({onAdd,cat,setCat}){
 }
 
 /* ════ STICKY CART ════ */
-function StickyCart({cart,setPage}){
-  // Show unique product count only (no total qty, no price)
-  const productCount = cart.length;
-  if(productCount===0) return null;
-  return(
-    <button className="sticky-cart" onClick={()=>setPage("cart")}>
-      <i className="fa-solid fa-bag-shopping"/>
-      {productCount} Item{productCount>1?"s":""}
-    </button>
-  );
-}
+
 
 /* ════ STORY ════ */
 function StorySection(){
@@ -958,7 +1086,7 @@ function GallerySection(){
       <div className="container">
         <div style={{textAlign:"center"}}>
           <div className="sec-tag" style={{margin:"0 auto 10px"}}>📸 Our Workplace</div>
-          <h2 className="sec-title">Life at Organic Farm</h2>
+          <h2 className="sec-title">Life at Sudarshan Organic Farm & Store</h2>
           <p className="sec-sub" style={{margin:"0 auto"}}>From our fields in Nashik to your kitchen — follow the journey.</p>
         </div>
         <div className="bento-grid">
@@ -1005,7 +1133,7 @@ function MapSection(){
               <div className="map-icon"><i className="fa-solid fa-phone"/></div>
               <div className="map-det">
                 <h4>Call / WhatsApp</h4>
-                <a href="tel:7743917248">+91 77439 17248</a>
+                <a href="tel:9405606230">+91 94056 06230</a>
               </div>
             </div>
             <a
@@ -1021,7 +1149,7 @@ function MapSection(){
           </div>
           <div className="map-embed">
             <iframe
-              title="Organic Farm Location - Nashik"
+              title="Sudarshan Organic Farm & Store - Nashik"
               src="https://maps.google.com/maps?q=19.9906077,73.7789289&z=16&output=embed"
               allowFullScreen=""
               loading="lazy"
@@ -1076,7 +1204,7 @@ function ContactSection(){
             <h3>We're Here For You</h3>
             <p>Questions about products, bulk orders, or farm visits? Reach us anytime.</p>
             <div className="c-item"><div className="c-icon"><i className="fa-solid fa-phone"/></div>
-              <div className="c-det"><h4>Call Us</h4><a href="tel:7743917248">+91 77439 17248</a></div>
+              <div className="c-det"><h4>Call Us</h4><a href="tel:9405606230">+91 94056 06230</a></div>
             </div>
             <div className="c-item"><div className="c-icon"><i className="fa-brands fa-whatsapp"/></div>
               <div className="c-det"><h4>WhatsApp Order</h4><a href={`https://wa.me/${ADMIN_WA}`} target="_blank" rel="noreferrer">Chat on WhatsApp</a></div>
@@ -1136,8 +1264,24 @@ function Footer({setPage}){
         <div className="footer-grid">
           <div className="footer-brand">
             <a className="logo" href="#home" style={{marginBottom:"12px",textDecoration:"none"}}>
-              <div className="logo-icon"><i className="fa-solid fa-leaf"/></div>
-              Organic Farm
+              <span className="logo-icon">
+                <svg viewBox="0 0 64 64" aria-hidden="true">
+                  <path d="M14 50C20 40 24 32 34 14" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity=".55"/>
+                  <ellipse cx="33" cy="16" rx="7.5" ry="4.5" fill="currentColor" transform="rotate(35 33 16)"/>
+                  <ellipse cx="27" cy="24" rx="7" ry="4" fill="currentColor" opacity=".85" transform="rotate(20 27 24)"/>
+                  <ellipse cx="34" cy="29" rx="7.5" ry="4.2" fill="currentColor" transform="rotate(-25 34 29)"/>
+                  <ellipse cx="25" cy="36" rx="7" ry="4" fill="currentColor" opacity=".85" transform="rotate(15 25 36)"/>
+                  <ellipse cx="32" cy="41" rx="7.5" ry="4.2" fill="currentColor" transform="rotate(-30 32 41)"/>
+                </svg>
+              </span>
+              <span className="logo-text">
+                <span className="logo-name">Sudarshan</span>
+                <span className="logo-subline">
+                  <span className="logo-organic">Organic</span>
+                  <span className="logo-divider">|</span>
+                  <span className="logo-sub">Farm &amp; Store</span>
+                </span>
+              </span>
             </a>
             <p>From our family farm in Nashik to your kitchen — 100% organic, always fresh.</p>
           </div>
@@ -1164,7 +1308,7 @@ function Footer({setPage}){
           <div className="footer-col">
             <h4>Contact</h4>
             <ul>
-              <li><a href="tel:7743917248">📞 77439 17248</a></li>
+              <li><a href="tel:9405606230">📞 94056 06230</a></li>
               <li><a href={`https://wa.me/${ADMIN_WA}`} target="_blank" rel="noreferrer">💬 WhatsApp</a></li>
               <li><a href="#map">📍 Nashik Store</a></li>
               <li><a href="#contact">✉️ Message Us</a></li>
@@ -1172,7 +1316,7 @@ function Footer({setPage}){
           </div>
         </div>
         <div className="footer-bottom">
-          <p>© {new Date().getFullYear()} Organic Farm, Nashik. Made with 🌿 love. · <a href="/admin" style={{color:"inherit",opacity:.55,textDecoration:"none",fontSize:".78rem"}}>Admin Login</a></p>
+          <p>© {new Date().getFullYear()} Sudarshan Organic Farm & Store, Nashik. Made with 🌿 love. · <a href="/admin" style={{color:"inherit",opacity:.55,textDecoration:"none",fontSize:".78rem"}}>Admin Login</a></p>
           <div className="social-links">
             <a className="soc-link" href={`https://wa.me/${ADMIN_WA}`} target="_blank" rel="noreferrer"><i className="fa-brands fa-whatsapp"/></a>
             <a className="soc-link" href="#"><i className="fa-brands fa-instagram"/></a>
@@ -1186,10 +1330,23 @@ function Footer({setPage}){
 
 /* ════ HOME PAGE ════ */
 function HomePage({cart,addToCart,setPage,cat,setCat}){
+  const [productCount, setProductCount] = React.useState(
+    (window.DEFAULT_PRODUCTS||[]).length
+  );
+  React.useEffect(()=>{
+    let unsub = ()=>{};
+    if(window.ProductsAPI){
+      unsub = window.ProductsAPI.subscribeProducts(
+        (list)=>{ setProductCount(list.length); },
+        ()=>{}
+      );
+    }
+    return ()=>unsub();
+  },[]);
   return(
     <>
       <div id="home">
-        <Hero setPage={setPage}/>
+        <Hero setPage={setPage} productCount={productCount}/>
       </div>
       <TrustBand/>
       <ProductsSection onAdd={addToCart} cat={cat} setCat={setCat}/>
@@ -1487,7 +1644,6 @@ function App(){
       <Header cart={cart} page={page} setPage={setPage} cat={cat} setCat={setCat}/>
       {page==="home"&&<HomePage cart={cart} addToCart={addToCart} setPage={setPage} cat={cat} setCat={setCat}/>}
       {page==="cart"&&<CartPage cart={cart} updateQty={updateQty} removeItem={removeItem} clearCart={clearCart} setPage={setPage} showToast={showToast}/>}
-      {page==="home"&&<StickyCart cart={cart} setPage={setPage}/>}
       <Toast toast={toast}/>
     </>
   );
