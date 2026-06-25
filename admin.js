@@ -516,7 +516,7 @@ function ProductsManager(){
                   >
                     <td style={{paddingRight:0}}>
                       {window.firebaseEnabled && <i className="fa-solid fa-grip-vertical" style={{color:"var(--text-muted)",fontSize:".8rem",cursor:"grab"}}/>}
-                      <img className="adm-thumb" src={p.image} alt="" onError={e=>{e.target.src="../images/products/Organic_Product.jpg";}} style={{marginLeft:8}}/>
+                      <img className="adm-thumb" src={p.image&&!p.image.startsWith("../")?`../${p.image}`:p.image||"../images/products/Organic_Product.jpg"} alt="" onError={e=>{e.target.src="../images/products/Organic_Product.jpg";}} style={{marginLeft:8}}/>
                     </td>
                     <td><div className="adm-pname">{p.name}</div><div className="adm-pname-en">{p.nameEn}</div></td>
                     <td>{p.category}</td>

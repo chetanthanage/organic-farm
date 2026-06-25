@@ -132,7 +132,8 @@ const CAT_TABS=[
 ];
 
 /* ════ HEADER ════ */
-function Header({cart,page,setPage,cat,setCat}){
+function Header({cart,page,setPage,cat,setCat,catTabs}){
+  const tabs = catTabs || CAT_TABS;
   const [mob,      setMob]      = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
   const [catBarOn, setCatBarOn] = React.useState(false);
@@ -252,7 +253,7 @@ function Header({cart,page,setPage,cat,setCat}){
               <i className="fa-solid fa-chevron-left"/>
             </button>
             <div className="catbar-strip" ref={scrollRef}>
-              {CAT_TABS.map(c=>(
+              {tabs.map(c=>(
                 <button
                   key={c.val}
                   className={`catbar-tab${cat===c.val?" active":""}`}
@@ -783,7 +784,8 @@ const CATEGORY_HEADING_COLORS = {
   "Personal Care":  "#00897B",
 };
 
-function ProductsSection({onAdd,cat,setCat}){
+function ProductsSection({onAdd,cat,setCat,catTabs}){
+  const tabs = catTabs || CAT_TABS;
   const [modalProduct, setModalProduct] = React.useState(null);
 
   const handleOpenModal = React.useCallback((product) => {
@@ -845,7 +847,7 @@ function ProductsSection({onAdd,cat,setCat}){
           <div className="sec-header" style={{textAlign:"center"}}>
             <div className="sec-tag">
               {(()=>{
-                const allCat = CAT_TABS.find(c=>c.val==="All");
+                const allCat = tabs.find(c=>c.val==="All");
                 return allCat
                   ? <><i className={allCat.icon}/> Our Products <span style={{fontWeight:400,opacity:.75}}>/ आमची उत्पादने</span></>
                   : "Our Products / आमची उत्पादने";
@@ -1007,7 +1009,7 @@ function ProductsSection({onAdd,cat,setCat}){
                       }}
                     >
                       {(()=>{
-                        const c = CAT_TABS.find(x=>x.val===catName);
+                        const c = tabs.find(x=>x.val===catName);
                         return c
                           ? <><i className={c.icon} style={{marginRight:"7px",fontSize:".95em",opacity:.9}}/>{c.label}</>
                           : catName;
@@ -1329,7 +1331,7 @@ function Footer({setPage}){
 }
 
 /* ════ HOME PAGE ════ */
-function HomePage({cart,addToCart,setPage,cat,setCat}){
+function HomePage({cart,addToCart,setPage,cat,setCat,catTabs}){
   const [productCount, setProductCount] = React.useState(
     (window.DEFAULT_PRODUCTS||[]).length
   );
@@ -1349,7 +1351,7 @@ function HomePage({cart,addToCart,setPage,cat,setCat}){
         <Hero setPage={setPage} productCount={productCount}/>
       </div>
       <TrustBand/>
-      <ProductsSection onAdd={addToCart} cat={cat} setCat={setCat}/>
+      <ProductsSection onAdd={addToCart} cat={cat} setCat={setCat} catTabs={catTabs}/>
       <StorySection/>
       <GallerySection/>
       <MapSection/>
@@ -1611,6 +1613,26 @@ function App(){
   const {toast,showToast}=useToast();
   const count=cartCount(cart);
 
+  /* Live category order from Firestore (set by Admin → Categories).
+     Builds a sorted version of CAT_TABS that matches the saved order.
+     Falls back to the hardcoded CAT_TABS if Firebase isn't configured. */
+  const [catTabs, setCatTabs] = React.useState(CAT_TABS);
+  React.useEffect(()=>{
+    if(!window.CategoriesAPI) return;
+    const unsub = window.CategoriesAPI.subscribeCategories(orderedCats => {
+      // orderedCats is [{id, label}, ...] in the admin-saved order.
+      // Map each to the matching CAT_TABS entry (which has icon + color).
+      const tabMap = new Map(CAT_TABS.map(t => [t.val, t]));
+      const sorted = orderedCats
+        .filter(c => tabMap.has(c.id))
+        .map(c => tabMap.get(c.id));
+      // Append any CAT_TABS entries not in orderedCats (safety net)
+      CAT_TABS.forEach(t => { if(!sorted.includes(t)) sorted.push(t); });
+      setCatTabs(sorted);
+    });
+    return unsub;
+  },[]);
+
   React.useEffect(()=>{
     // Clear cart if user is returning from a mobile WhatsApp redirect
     if(localStorage.getItem("pendingClearCart")==="1"){
@@ -1641,8 +1663,8 @@ function App(){
 
   return(
     <>
-      <Header cart={cart} page={page} setPage={setPage} cat={cat} setCat={setCat}/>
-      {page==="home"&&<HomePage cart={cart} addToCart={addToCart} setPage={setPage} cat={cat} setCat={setCat}/>}
+      <Header cart={cart} page={page} setPage={setPage} cat={cat} setCat={setCat} catTabs={catTabs}/>
+      {page==="home"&&<HomePage cart={cart} addToCart={addToCart} setPage={setPage} cat={cat} setCat={setCat} catTabs={catTabs}/>}
       {page==="cart"&&<CartPage cart={cart} updateQty={updateQty} removeItem={removeItem} clearCart={clearCart} setPage={setPage} showToast={showToast}/>}
       <Toast toast={toast}/>
     </>
