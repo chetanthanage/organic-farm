@@ -132,7 +132,7 @@ const CAT_TABS=[
 ];
 
 /* ════ HEADER ════ */
-function Header({cart,page,setPage,cat,setCat,catTabs}){
+function Header({cart,page,setPage,cat,setCat,catTabs,catSearch,setCatSearch}){
   const tabs = catTabs || CAT_TABS;
   const [mob,      setMob]      = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
@@ -242,9 +242,30 @@ function Header({cart,page,setPage,cat,setCat,catTabs}){
         {/* ── Category bar: second tier, slides in under navbar ── */}
         <div className={`catbar${catBarOn?" catbar-visible":""}`}>
           <div className="catbar-inner container">
+            {/* Left arrow — always first */}
             <button className="catbar-arrow catbar-arrow-l" onClick={()=>scrollCats(-1)} aria-label="Scroll categories left">
               <i className="fa-solid fa-chevron-left"/>
             </button>
+            {/* Inline search box — after left arrow */}
+            <div className="catbar-search">
+              <div className="catbar-search-inner">
+                <i className="fa-solid fa-magnifying-glass catbar-search-icon" aria-hidden="true"/>
+                <input
+                  className="catbar-search-input"
+                  type="text"
+                  placeholder="Search products…"
+                  value={catSearch}
+                  onChange={e=>setCatSearch(e.target.value)}
+                  aria-label="Search products"
+                />
+                {catSearch&&(
+                  <button className="catbar-search-clear" onClick={()=>setCatSearch("")} aria-label="Clear search">
+                    <i className="fa-solid fa-xmark"/>
+                  </button>
+                )}
+              </div>
+            </div>
+            {/* Scrollable tab strip */}
             <div className="catbar-strip" ref={scrollRef}>
               {tabs.map(c=>(
                 <button
@@ -265,6 +286,7 @@ function Header({cart,page,setPage,cat,setCat,catTabs}){
                 </button>
               ))}
             </div>
+            {/* Right arrow — always last */}
             <button className="catbar-arrow catbar-arrow-r" onClick={()=>scrollCats(1)} aria-label="Scroll categories right">
               <i className="fa-solid fa-chevron-right"/>
             </button>
@@ -329,12 +351,81 @@ function Hero({setPage, productCount}){
     const el = document.querySelector("#products");
     if(el) el.scrollIntoView({behavior:"smooth"});
   };
+
+  /* ── Mesh gradient canvas ── */
+  React.useEffect(()=>{
+    const canvas = document.getElementById("hero-mesh-canvas");
+    if(!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let raf;
+
+    const points = [
+      {x:.12,y:.18,vx:.0007,vy:.0005,  r:[52,211,153]},
+      {x:.82,y:.12,vx:-.0006,vy:.0008, r:[251,191,36]},
+      {x:.5, y:.85,vx:.0008,vy:-.0006, r:[99,102,241]},
+      {x:.18,y:.72,vx:-.0005,vy:-.0007,r:[244,63,94]},
+      {x:.88,y:.62,vx:.0006,vy:.0004,  r:[16,185,129]},
+      {x:.42,y:.3, vx:-.0004,vy:.0006, r:[139,92,246]},
+    ];
+
+    function resize(){
+      const hero = canvas.parentElement;
+      canvas.width  = hero.offsetWidth;
+      canvas.height = hero.offsetHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize, {passive:true});
+
+    function draw(){
+      const W = canvas.width, H = canvas.height;
+      if(W === 0 || H === 0){ raf = requestAnimationFrame(draw); return; }
+      const imgData = ctx.createImageData(W, H);
+      const data = imgData.data;
+      /* Sample every 2px and upscale for performance */
+      const step = 2;
+      for(let y = 0; y < H; y += step){
+        for(let x = 0; x < W; x += step){
+          let R=0,G=0,B=0,wt=0;
+          points.forEach(p=>{
+            const dx=x/W-p.x, dy=y/H-p.y;
+            const d=Math.sqrt(dx*dx+dy*dy);
+            const w=1/(d*d+0.015);
+            R+=p.r[0]*w; G+=p.r[1]*w; B+=p.r[2]*w; wt+=w;
+          });
+          const ri=Math.min(255,(R/wt)*.52)|0;
+          const gi=Math.min(255,(G/wt)*.52)|0;
+          const bi=Math.min(255,(B/wt)*.52)|0;
+          for(let sy=0;sy<step&&y+sy<H;sy++){
+            for(let sx=0;sx<step&&x+sx<W;sx++){
+              const idx=((y+sy)*W+(x+sx))*4;
+              data[idx]=ri; data[idx+1]=gi; data[idx+2]=bi; data[idx+3]=255;
+            }
+          }
+        }
+      }
+      ctx.putImageData(imgData,0,0);
+      points.forEach(p=>{
+        p.x+=p.vx; p.y+=p.vy;
+        if(p.x<0||p.x>1) p.vx*=-1;
+        if(p.y<0||p.y>1) p.vy*=-1;
+      });
+      raf = requestAnimationFrame(draw);
+    }
+    draw();
+    return ()=>{
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+    };
+  },[]);
   return(
     <section className="hero" id="hero-section">
+      <canvas id="hero-mesh-canvas" aria-hidden="true"/>
       <div className="hero-aurora" aria-hidden="true"/>
       <div className="hero-grid" aria-hidden="true"/>
       <div className="hero-orb hero-orb-1" aria-hidden="true"/>
       <div className="hero-orb hero-orb-2" aria-hidden="true"/>
+      <div className="hero-orb hero-orb-3" aria-hidden="true"/>
+      <div className="hero-orb hero-orb-4" aria-hidden="true"/>
       <div className="container">
         <div className="hero-inner">
           <div className="hero-badge animate-in" style={{animationDelay:"0ms"}}>
@@ -777,7 +868,7 @@ const CATEGORY_HEADING_COLORS = {
   "Personal Care":  "#00897B",
 };
 
-function ProductsSection({onAdd,cat,setCat,catTabs}){
+function ProductsSection({onAdd,cat,setCat,catTabs,catSearch}){
   const tabs = catTabs || CAT_TABS;
   const [modalProduct, setModalProduct] = React.useState(null);
 
@@ -789,20 +880,14 @@ function ProductsSection({onAdd,cat,setCat,catTabs}){
     if(!modalProduct) return;
     onAdd(modalProduct, qtyData);
     if(modalProduct._notifyAdded) modalProduct._notifyAdded();
-    /* Fly animation: from product card image to cart button */
     flyToCart(modalProduct._cardEl);
     setModalProduct(null);
   };
 
   const handleModalClose = () => setModalProduct(null);
-  const [search, setSearch]= React.useState("");
   const [products, setProducts] = React.useState(window.DEFAULT_PRODUCTS||[]);
   const [loading, setLoading] = React.useState(true);
 
-  /* Realtime subscription: live-updates the storefront the moment
-     an admin adds/edits/removes a product or toggles availability.
-     Falls back to the original static catalog automatically if
-     Firestore is empty or not configured (see products.js). */
   React.useEffect(()=>{
     let unsub = ()=>{};
     if(window.ProductsAPI){
@@ -820,8 +905,8 @@ function ProductsSection({onAdd,cat,setCat,catTabs}){
   const filtered = React.useMemo(()=>{
     let list = [...products];
     if(cat !== "All") list = list.filter(p=>p.category===cat);
-    if(search.trim()){
-      const q = search.toLowerCase();
+    if(catSearch && catSearch.trim()){
+      const q = catSearch.toLowerCase();
       list = list.filter(p=>
         p.name.toLowerCase().includes(q) ||
         p.nameEn.toLowerCase().includes(q) ||
@@ -829,7 +914,7 @@ function ProductsSection({onAdd,cat,setCat,catTabs}){
       );
     }
     return list;
-  },[products,cat,search]);
+  },[products,cat,catSearch]);
 
   return(
     <section className="products-section" id="products">
@@ -842,43 +927,12 @@ function ProductsSection({onAdd,cat,setCat,catTabs}){
               {(()=>{
                 const allCat = tabs.find(c=>c.val==="All");
                 return allCat
-                  ? <><i className={allCat.icon}/> Our Products <span style={{fontWeight:400,opacity:.75}}>/ आमची उत्पादने</span></>
-                  : "Our Products / आमची उत्पादने";
+                  ? <><i className={allCat.icon}/> Our Products</>
+                  : "Our Products";
               })()}
             </div>
             <h2 className="sec-title">Fresh Organic Products</h2>
             <p className="sec-sub" style={{margin:"0 auto"}}>{products.length}+ products directly from our certified organic farm.</p>
-          </div>
-        </div>
-
-        {/* ── Search bar only — categories now live in the navbar catbar ── */}
-        <div className="filter-bar">
-          <div className="fb-search-row">
-            <i className="fa-solid fa-magnifying-glass fb-search-icon"/>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search products... / शोधा"
-              value={search}
-              onChange={e=>setSearch(e.target.value)}
-            />
-            {search&&(
-              <button
-                className="fb-clear-btn"
-                onClick={()=>setSearch("")}
-                aria-label="Clear search"
-              >
-                <i className="fa-solid fa-xmark"/>
-              </button>
-            )}
-          </div>
-          <div className="fb-count">
-            {cat!=="All"&&(
-              <button className="fb-active-cat" onClick={()=>setCat("All")}>
-                {cat} <i className="fa-solid fa-xmark" style={{fontSize:".65rem",marginLeft:"3px"}}/>
-              </button>
-            )}
-            Showing <strong>{filtered.length}</strong> product{filtered.length!==1?"s":""}
           </div>
         </div>
 
@@ -1321,7 +1375,7 @@ function Footer({setPage}){
 }
 
 /* ════ HOME PAGE ════ */
-function HomePage({cart,addToCart,setPage,cat,setCat,catTabs}){
+function HomePage({cart,addToCart,setPage,cat,setCat,catTabs,catSearch,setCatSearch}){
   const [productCount, setProductCount] = React.useState(
     (window.DEFAULT_PRODUCTS||[]).length
   );
@@ -1341,7 +1395,7 @@ function HomePage({cart,addToCart,setPage,cat,setCat,catTabs}){
         <Hero setPage={setPage} productCount={productCount}/>
       </div>
       <TrustBand/>
-      <ProductsSection onAdd={addToCart} cat={cat} setCat={setCat} catTabs={catTabs}/>
+      <ProductsSection onAdd={addToCart} cat={cat} setCat={setCat} catTabs={catTabs} catSearch={catSearch}/>
       <StorySection/>
       <GallerySection/>
       <MapSection/>
@@ -1599,6 +1653,7 @@ function CartPage({cart,updateQty,removeItem,clearCart,setPage,showToast}){
 function App(){
   const [page,setPage]=React.useState("home");
   const [cat,setCat]=React.useState("All");
+  const [catSearch,setCatSearch]=React.useState("");
   const {cart,addToCart,updateQty,removeItem,clearCart}=useCart();
   const {toast,showToast}=useToast();
   const count=cartCount(cart);
@@ -1653,8 +1708,8 @@ function App(){
 
   return(
     <>
-      <Header cart={cart} page={page} setPage={setPage} cat={cat} setCat={setCat} catTabs={catTabs}/>
-      {page==="home"&&<HomePage cart={cart} addToCart={addToCart} setPage={setPage} cat={cat} setCat={setCat} catTabs={catTabs}/>}
+      <Header cart={cart} page={page} setPage={setPage} cat={cat} setCat={setCat} catTabs={catTabs} catSearch={catSearch} setCatSearch={setCatSearch}/>
+      {page==="home"&&<HomePage cart={cart} addToCart={addToCart} setPage={setPage} cat={cat} setCat={setCat} catTabs={catTabs} catSearch={catSearch} setCatSearch={setCatSearch}/>}
       {page==="cart"&&<CartPage cart={cart} updateQty={updateQty} removeItem={removeItem} clearCart={clearCart} setPage={setPage} showToast={showToast}/>}
       <Toast toast={toast}/>
     </>
